@@ -1,0 +1,173 @@
+/* ========== TELA DE LOGIN ========== */
+.login-container {
+    max-width: 400px;
+    margin: 100px auto;
+    padding: 30px;
+    border-radius: 10px;
+    box-shadow: 0 0 20px rgba(0,0,0,0.1);
+    background-color: #fff;
+    animation: fadeIn 0.5s ease;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(-20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.login-container h3 {
+    color: #2c3e50;
+    font-weight: 600;
+    margin-bottom: 30px;
+}
+
+.login-container h3 i {
+    font-size: 3rem;
+    color: #3498db;
+    margin-bottom: 15px;
+    display: block;
+}
+
+/* Estilos específicos para login admin */
+.admin-login {
+    background-color: #fff3cd;
+    border: 1px solid #ffeaa7;
+    animation: slideIn 0.3s ease;
+}
+
+@keyframes slideIn {
+    from {
+        opacity: 0;
+        transform: translateX(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateX(0);
+    }
+}
+
+/* Formulários de login */
+#loginFormCpf,
+#loginFormAdmin {
+    animation: fadeInUp 0.5s ease 0.2s both;
+}
+
+@keyframes fadeInUp {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* Inputs do login */
+.login-container .form-control {
+    padding: 10px 15px;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    transition: all 0.3s ease;
+}
+
+.login-container .form-control:focus {
+    border-color: #3498db;
+    box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.2);
+}
+
+/* Botões do login */
+.login-container .btn-primary {
+    background: linear-gradient(135deg, #3498db, #2980b9);
+    border: none;
+    padding: 12px;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+    transition: all 0.3s ease;
+}
+
+.login-container .btn-primary:hover {
+    background: linear-gradient(135deg, #2980b9, #1f6397);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(52, 152, 219, 0.3);
+}
+
+.login-container .btn-warning {
+    background: linear-gradient(135deg, #f39c12, #e67e22);
+    border: none;
+    padding: 12px;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+    transition: all 0.3s ease;
+}
+
+.login-container .btn-warning:hover {
+    background: linear-gradient(135deg, #e67e22, #d35400);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(243, 156, 18, 0.3);
+}
+
+/* Checkbox lembrar-me */
+.login-container .form-check-input:checked {
+    background-color: #3498db;
+    border-color: #3498db;
+}
+
+.login-container .form-check-label {
+    color: #7f8c8d;
+    font-size: 0.9rem;
+}
+
+/* Texto de ajuda */
+.login-container .form-text {
+    font-size: 0.85rem;
+    color: #95a5a6;
+}
+
+.login-container .text-muted {
+    color: #7f8c8d !important;
+}
+
+/* Mensagem de senha padrão */
+.login-container .mt-2 {
+    margin-top: 15px !important;
+    padding-top: 15px;
+    border-top: 1px solid #eee;
+}
+
+/* Responsividade da tela de login */
+@media (max-width: 768px) {
+    .login-container {
+        margin: 50px auto;
+        padding: 20px;
+    }
+    
+    .login-container h3 i {
+        font-size: 2.5rem;
+    }
+}
+
+@media (max-width: 576px) {
+    .login-container {
+        margin: 30px 15px;
+        padding: 20px 15px;
+    }
+    
+    .login-container h3 {
+        font-size: 1.5rem;
+    }
+    
+    .login-container h3 i {
+        font-size: 2rem;
+    }
+    
+    .login-container .btn {
+        padding: 10px;
+        font-size: 0.9rem;
+    }
+}
