@@ -1,0 +1,46 @@
+/* src/css/styles.css */
+.hidden {
+    display: none !important;
+}
+
+.login-container {
+    max-width: 450px;
+    margin: 50px auto;
+    padding: 30px;
+    border-radius: 15px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+}
+
+.admin-login {
+    border-left: 4px solid #ffc107;
+    background-color: #fff9e6;
+}
+
+.btn-login-option {
+    transition: all 0.3s ease;
+    border: 2px solid transparent;
+}
+
+.btn-login-option:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+}
+
+.btn-outline-primary:hover {
+    background-color: #0d6efd;
+    color: white;
+}
+
+.btn-outline-warning:hover {
+    background-color: #ffc107;
+    color: black;
+}
+
+.form-screen {
+    animation: fadeIn 0.3s ease;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+}

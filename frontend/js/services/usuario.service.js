@@ -1,13 +1,10 @@
-import { 
-    usuarios, usuarioResetSenha,
-    salvarUsuarios, hashPassword
-} from '../utils/storage.js';
+import { state, salvarUsuarios, hashPassword } from '../utils/storage.js';
 import { formatarCPF } from '../utils/helpers.js';
 import { validarUsuario } from '../utils/validators.js';
 
 // Mostrar modal de gerenciar usuários
 export function showGerenciarUsuariosModal() {
-    if (!isAdmin) return;
+    if (!state.isAdmin) return;
     const modal = new bootstrap.Modal(document.getElementById('gerenciarUsuariosModal'));
     carregarUsuariosTable();
     modal.show();
@@ -27,7 +24,7 @@ export function carregarUsuariosTable() {
     
     tbody.innerHTML = '';
 
-    usuarios.forEach(usuario => {
+    state.usuarios.forEach(usuario => {
         const dataCriacao = new Date(usuario.dataCriacao).toLocaleDateString('pt-BR');
         const tr = document.createElement('tr');
         tr.innerHTML = `
@@ -41,11 +38,11 @@ export function carregarUsuariosTable() {
             <td>${dataCriacao}</td>
             <td>
                 <button class="btn btn-warning btn-sm me-1" onclick="resetarSenhaUsuario(${usuario.id})"
-                    ${usuario.cpf === currentUser.cpf ? 'disabled' : ''}>
+                    ${usuario.cpf === state.currentUser?.cpf ? 'disabled' : ''}>
                     <i class="fas fa-key"></i> Resetar Senha
                 </button>
                 <button class="btn btn-danger btn-sm" onclick="excluirUsuario(${usuario.id})"
-                    ${usuario.cpf === currentUser.cpf ? 'disabled' : ''}>
+                    ${usuario.cpf === state.currentUser?.cpf ? 'disabled' : ''}>
                     <i class="fas fa-trash"></i> Excluir
                 </button>
             </td>
@@ -64,13 +61,13 @@ export function salvarUsuario() {
     if (!validarUsuario(nome, cpf, senha, tipo)) return;
 
     // Verificar se CPF já existe
-    if (usuarios.find(u => u.cpf.replace(/\D/g, '') === cpf)) {
+    if (state.usuarios.find(u => u.cpf.replace(/\D/g, '') === cpf)) {
         alert('Este CPF já está cadastrado!');
         return;
     }
 
     const novoUsuario = {
-        id: usuarios.length > 0 ? Math.max(...usuarios.map(u => u.id)) + 1 : 1,
+        id: state.usuarios.length > 0 ? Math.max(...state.usuarios.map(u => u.id)) + 1 : 1,
         nome: nome,
         cpf: cpf,
         password: hashPassword(senha),
@@ -79,7 +76,7 @@ export function salvarUsuario() {
         ativo: true
     };
 
-    usuarios.push(novoUsuario);
+    state.usuarios.push(novoUsuario);
     salvarUsuarios();
     
     alert('Usuário criado com sucesso!');
@@ -91,8 +88,8 @@ export function salvarUsuario() {
 
 // Resetar senha de usuário
 export function resetarSenhaUsuario(id) {
-    usuarioResetSenha = usuarios.find(u => u.id === id);
-    if (usuarioResetSenha) {
+    state.usuarioResetSenha = state.usuarios.find(u => u.id === id);
+    if (state.usuarioResetSenha) {
         const modal = new bootstrap.Modal(document.getElementById('resetSenhaModal'));
         document.getElementById('novaSenha').value = '';
         document.getElementById('confirmNovaSenha').value = '';
@@ -115,24 +112,24 @@ export function confirmarResetSenha() {
         return;
     }
 
-    if (usuarioResetSenha) {
-        usuarioResetSenha.password = hashPassword(novaSenha);
+    if (state.usuarioResetSenha) {
+        state.usuarioResetSenha.password = hashPassword(novaSenha);
         salvarUsuarios();
-        alert(`Senha do usuário ${usuarioResetSenha.nome} resetada com sucesso!`);
+        alert(`Senha do usuário ${state.usuarioResetSenha.nome} resetada com sucesso!`);
         
         const modal = bootstrap.Modal.getInstance(document.getElementById('resetSenhaModal'));
         modal.hide();
         carregarUsuariosTable();
-        usuarioResetSenha = null;
+        state.usuarioResetSenha = null;
     }
 }
 
 // Excluir usuário
 export function excluirUsuario(id) {
     if (!confirm('Tem certeza que deseja excluir este usuário?')) return;
-    const index = usuarios.findIndex(u => u.id === id);
+    const index = state.usuarios.findIndex(u => u.id === id);
     if (index !== -1) {
-        usuarios.splice(index, 1);
+        state.usuarios.splice(index, 1);
         salvarUsuarios();
         alert('Usuário excluído com sucesso!');
         carregarUsuariosTable();

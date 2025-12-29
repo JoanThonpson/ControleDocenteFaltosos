@@ -7,81 +7,32 @@
     
     <!-- Bootstrap CSS -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    
     <!-- Font Awesome -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- CSS do Sistema -->
+    <link rel="stylesheet" href="css/styles.css">
+    <!-- CSS dos Modais -->
+    <link rel="stylesheet" href="css/modais.css">
     
-    <!-- XLSX e jsPDF (CDN) -->
+    <!-- Bibliotecas para relatórios -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     
-    <!-- CSS Personalizado -->
-    <link rel="stylesheet" href="src/css/styles.css">
-    <link rel="stylesheet" href="src/css/login.css">
-    <link rel="stylesheet" href="src/css/modais.css">
+    <!-- CSS inline do monolítico (para manter aparência idêntica) -->
+    <style>
+        .hidden { display: none; }
+        .badge-justificada { background-color: #28a745; }
+        .badge-falta { background-color: #dc3545; }
+        .filtro-container { background-color: #f8f9fa; padding: 20px; border-radius: 5px; margin-bottom: 20px; }
+        .nav-tabs .nav-link.active { font-weight: bold; }
+        .table th { background-color: #343a40; color: white; }
+        .config-item { padding: 8px 12px; border-bottom: 1px solid #dee2e6; }
+        .config-item:last-child { border-bottom: none; }
+    </style>
 </head>
 <body>
-    <!--Tela de Login-->
-    <div id="loginScreen" class="login-container bg-light">
-        <h3 class="text-center mb-4">
-            <i class="fas fa-chalkboard-teacher"></i><br>
-            Sistema de Faltas
-        </h3>
-
-        <!-- Seleção do Tipo de Acesso -->
-        <div class="mb-3">
-            <label class="form-label"><strong>Tipo de Acesso:</strong></label>
-            <select id="tipoAcesso" class="form-select" onchange="mudarTipoAcesso()">
-                <option value="cpf">Usuário/Gestor (CPF)</option>
-                <option value="admin">Administrador</option>
-            </select>
-        </div>
-
-        <!-- Login por CPF (Usuário/Gestor) -->
-        <div id="loginCpf">
-            <form id="loginFormCpf">
-                <div class="mb-3">
-                    <label class="form-label">CPF:</label>
-                    <input type="text" id="cpf" class="form-control" placeholder="Digite seu CPF" required>
-                </div>
-                <div class="mb-3">
-                    <label class="form-label">Senha:</label>
-                    <input type="password" id="passwordCpf" class="form-control" placeholder="Digite sua senha" required>
-                </div>
-                <div class="mb-3 form-check">
-                    <input type="checkbox" class="form-check-input" id="rememberMeCpf">
-                    <label class="form-check-label" for="rememberMeCpf">Lembrar-me</label>
-                </div>
-                <button type="submit" class="btn btn-primary w-100">
-                    <i class="fas fa-sign-in-alt"></i> Entrar
-                </button>
-            </form>
-        </div>
-
-        <!-- Login Administrador -->
-        <div id="loginAdmin" class="hidden admin-login p-3 rounded">
-            <form id="loginFormAdmin">
-                <div class="mb-3">
-                    <label class="form-label">Usuário Admin:</label>
-                    <input type="text" class="form-control" value="admin" readonly disabled>
-                    <small class="form-text text-muted">Usuário fixo para administradores</small>
-                </div>
-                <div class="mb-3">
-                    <label class="form-label">Senha:</label>
-                    <input type="password" id="passwordAdmin" class="form-control" placeholder="Digite a senha admin" required>
-                </div>
-                <button type="submit" class="btn btn-warning w-100">
-                    <i class="fas fa-sign-in-alt"></i> Entrar como Admin
-                </button>
-            </form>
-            <div class="mt-2 text-center">
-                <small class="text-muted"><strong>Senha padrão:</strong> admin123</small>
-            </div>
-        </div>
-    </div>
-
     <!-- Sistema Principal -->
-    <div id="mainSystem" class="hidden">
+    <div id="mainSystem">
         <!-- Cabeçalho -->
         <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
             <div class="container">
@@ -91,13 +42,13 @@
                 </span>
                 <div class="navbar-nav ms-auto">
                     <span class="navbar-text me-3" id="userInfo"></span>
-                    <button class="btn btn-outline-light btn-sm me-2 hidden" id="gerenciarUsuariosBtn" onclick="showGerenciarUsuariosModal()">
+                    <button class="btn btn-outline-light btn-sm me-2 hidden" id="gerenciarUsuariosBtn">
                         <i class="fas fa-users-cog"></i> Gerenciar Usuários
                     </button>
-                    <button class="btn btn-outline-light btn-sm me-2" onclick="showConfigModal()">
+                    <button class="btn btn-outline-light btn-sm me-2" id="configBtn">
                         <i class="fas fa-cog"></i> Configurações
                     </button>
-                    <button class="btn btn-outline-light btn-sm" onclick="logout()">
+                    <button class="btn btn-outline-light btn-sm" id="logoutBtn">
                         <i class="fas fa-sign-out-alt"></i> Sair
                     </button>
                 </div>
@@ -135,7 +86,7 @@
                     <div class="card">
                         <div class="card-header d-flex justify-content-between align-items-center">
                             <h5 class="mb-0">Registro de Faltas</h5>
-                            <button class="btn btn-success btn-sm" onclick="showAddFaltaModal()">
+                            <button class="btn btn-success btn-sm" id="addFaltaBtn">
                                 <i class="fas fa-plus"></i> Nova Falta
                             </button>
                         </div>
@@ -145,7 +96,7 @@
                                 <div class="row">
                                     <div class="col-md-3">
                                         <label class="form-label">Mês:</label>
-                                        <select id="filtroMes" class="form-select" onchange="filtrarFaltas()">
+                                        <select id="filtroMes" class="form-select">
                                             <option value="">Todos os meses</option>
                                             <option value="01">Janeiro</option>
                                             <option value="02">Fevereiro</option>
@@ -163,7 +114,7 @@
                                     </div>
                                     <div class="col-md-3">
                                         <label class="form-label">Ano:</label>
-                                        <select id="filtroAno" class="form-select" onchange="filtrarFaltas()">
+                                        <select id="filtroAno" class="form-select">
                                             <option value="">Todos os anos</option>
                                             <option value="2024">2024</option>
                                             <option value="2025">2025</option>
@@ -171,12 +122,12 @@
                                     </div>
                                     <div class="col-md-3">
                                         <label class="form-label">Docente:</label>
-                                        <select id="filtroDocente" class="form-select" onchange="filtrarFaltas()">
+                                        <select id="filtroDocente" class="form-select">
                                             <option value="">Todos os docentes</option>
                                         </select>
                                     </div>
                                     <div class="col-md-3 d-flex align-items-end">
-                                        <button class="btn btn-outline-secondary w-100" onclick="limparFiltros()">
+                                        <button class="btn btn-outline-secondary w-100" id="limparFiltrosBtn">
                                             <i class="fas fa-times"></i> Limpar Filtros
                                         </button>
                                     </div>
@@ -214,7 +165,7 @@
                     <div class="card">
                         <div class="card-header d-flex justify-content-between align-items-center">
                             <h5 class="mb-0">Lista de Docentes</h5>
-                            <button class="btn btn-success btn-sm" id="addDocenteBtn" onclick="showAddDocenteModal()">
+                            <button class="btn btn-success btn-sm" id="addDocenteBtn">
                                 <i class="fas fa-plus"></i> Novo Docente
                             </button>
                         </div>
@@ -244,14 +195,14 @@
                     <div class="card">
                         <div class="card-header d-flex justify-content-between align-items-center">
                             <h5 class="mb-0">Cadastro de Justificativas Padrão</h5>
-                            <button class="btn btn-success btn-sm" onclick="showAddJustificativaModal()">
+                            <button class="btn btn-success btn-sm" id="addJustificativaBtn">
                                 <i class="fas fa-plus"></i> Nova Justificativa
                             </button>
                         </div>
                         <div class="card-body">
                             <div class="mb-3">
                                 <div class="input-group">
-                                    <input type="text" id="buscaJustificativa" class="form-control" placeholder="Buscar justificativa..." onkeyup="filtrarJustificativas()">
+                                    <input type="text" id="buscaJustificativa" class="form-control" placeholder="Buscar justificativa...">
                                 </div>
                             </div>
                             <div class="list-group" id="listaJustificativas" style="max-height: 500px; overflow-y: auto;">
@@ -284,7 +235,7 @@
                                                 </div>
                                             </div>
                                             <div class="mt-3">
-                                                <button class="btn btn-primary btn-sm w-100" onclick="aplicarFiltroEstatisticas()">
+                                                <button class="btn btn-primary btn-sm w-100" id="aplicarFiltroBtn">
                                                     <i class="fas fa-filter"></i> Aplicar Filtro nas Estatísticas
                                                 </button>
                                             </div>
@@ -295,10 +246,10 @@
                                     <div class="card">
                                         <div class="card-body">
                                             <h6>Relatórios</h6>
-                                            <button class="btn btn-outline-primary btn-sm mb-2 w-100" onclick="gerarRelatorioFaltas()">
+                                            <button class="btn btn-outline-primary btn-sm mb-2 w-100" id="gerarRelatorioExcelBtn">
                                                 <i class="fas fa-file-excel"></i> Relatório de Faltas (Excel)
                                             </button>
-                                            <button class="btn btn-outline-info btn-sm mb-2 w-100" onclick="gerarRelatorioDocentes()">
+                                            <button class="btn btn-outline-info btn-sm mb-2 w-100" id="gerarRelatorioPDFBtn">
                                                 <i class="fas fa-file-pdf"></i> Relatório de Docentes (PDF)
                                             </button>
                                         </div>
@@ -324,7 +275,7 @@
         </div>
     </div>
 
-    <!-- ========== MODAIS ========== -->
+    <!-- ========== MODAIS (todos os 11 modais) ========== -->
     
     <!-- Modal Gerenciar Usuários -->
     <div class="modal fade" id="gerenciarUsuariosModal" tabindex="-1">
@@ -335,7 +286,7 @@
                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
                 <div class="modal-body">
-                    <button class="btn btn-success btn-sm mb-3" onclick="showAddUsuarioModal()">
+                    <button class="btn btn-success btn-sm mb-3" id="addUsuarioBtn">
                         <i class="fas fa-user-plus"></i> Novo Usuário
                     </button>
                     <div class="table-responsive">
@@ -391,7 +342,7 @@
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                    <button type="button" class="btn btn-primary" onclick="salvarUsuario()">Salvar</button>
+                    <button type="button" class="btn btn-primary" id="salvarUsuarioBtn">Salvar</button>
                 </div>
             </div>
         </div>
@@ -417,7 +368,7 @@
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                    <button type="button" class="btn btn-primary" onclick="confirmarResetSenha()">Resetar Senha</button>
+                    <button type="button" class="btn btn-primary" id="confirmarResetSenhaBtn">Resetar Senha</button>
                 </div>
             </div>
         </div>
@@ -435,7 +386,7 @@
                     <form id="faltaForm">
                         <div class="mb-3">
                             <label class="form-label">Docente:</label>
-                            <select id="docenteSelect" class="form-select" required onchange="carregarDisciplinasCursos()">
+                            <select id="docenteSelect" class="form-select" required>
                                 <option value="">Selecione um docente</option>
                             </select>
                         </div>
@@ -487,7 +438,7 @@
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                    <button type="button" class="btn btn-primary" id="salvarFaltaBtn" onclick="salvarFalta()">Salvar</button>
+                    <button type="button" class="btn btn-primary" id="salvarFaltaBtn">Salvar</button>
                 </div>
             </div>
         </div>
@@ -509,7 +460,7 @@
                         </div>
                         <div class="mb-3">
                             <label class="form-label">Disciplina:</label>
-                            <select id="docenteDisciplinaSelect" class="form-select" required onchange="toggleNovaDisciplina()">
+                            <select id="docenteDisciplinaSelect" class="form-select" required>
                                 <option value="">Selecione uma disciplina</option>
                                 <option value="nova_disciplina">+ Nova Disciplina</option>
                             </select>
@@ -517,7 +468,7 @@
                         </div>
                         <div class="mb-3">
                             <label class="form-label">Curso:</label>
-                            <select id="docenteCursoSelect" class="form-select" required onchange="toggleNovoCurso()">
+                            <select id="docenteCursoSelect" class="form-select" required>
                                 <option value="">Selecione um curso</option>
                                 <option value="novo_curso">+ Novo Curso</option>
                             </select>
@@ -531,7 +482,7 @@
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                    <button type="button" class="btn btn-primary" id="salvarDocenteBtn" onclick="salvarDocente()">Salvar</button>
+                    <button type="button" class="btn btn-primary" id="salvarDocenteBtn">Salvar</button>
                 </div>
             </div>
         </div>
@@ -560,8 +511,8 @@
                         <div class="tab-pane fade show active" id="tabDisciplinas">
                             <div class="mb-3">
                                 <div class="input-group">
-                                    <input type="text" id="buscaDisciplina" class="form-control" placeholder="Buscar disciplina..." onkeyup="filtrarDisciplinas()">
-                                    <button class="btn btn-success" onclick="showAddDisciplinaModal()">
+                                    <input type="text" id="buscaDisciplina" class="form-control" placeholder="Buscar disciplina...">
+                                    <button class="btn btn-success" id="addDisciplinaBtn">
                                         <i class="fas fa-plus"></i> Nova
                                     </button>
                                 </div>
@@ -575,8 +526,8 @@
                         <div class="tab-pane fade" id="tabCursos">
                             <div class="mb-3">
                                 <div class="input-group">
-                                    <input type="text" id="buscaCurso" class="form-control" placeholder="Buscar curso..." onkeyup="filtrarCursos()">
-                                    <button class="btn btn-success" onclick="showAddCursoModal()">
+                                    <input type="text" id="buscaCurso" class="form-control" placeholder="Buscar curso...">
+                                    <button class="btn btn-success" id="addCursoBtn">
                                         <i class="fas fa-plus"></i> Novo
                                     </button>
                                 </div>
@@ -607,7 +558,7 @@
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                    <button type="button" class="btn btn-primary" onclick="salvarDisciplina()">Salvar</button>
+                    <button type="button" class="btn btn-primary" id="salvarDisciplinaBtn">Salvar</button>
                 </div>
             </div>
         </div>
@@ -629,7 +580,7 @@
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                    <button type="button" class="btn btn-primary" onclick="salvarCurso()">Salvar</button>
+                    <button type="button" class="btn btn-primary" id="salvarCursoBtn">Salvar</button>
                 </div>
             </div>
         </div>
@@ -646,12 +597,12 @@
                 <div class="modal-body">
                     <div class="mb-3">
                         <label class="form-label">Descrição da Justificativa:</label>
-                        <input type="text" id="novaJustificativaDescricao" class="form-control" placeholder="Ex: Consulta médica">
+                            <input type="text" id="novaJustificativaDescricao" class="form-control" placeholder="Ex: Consulta médica">
                     </div>
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                    <button type="button" class="btn btn-primary" onclick="salvarJustificativa()">Salvar</button>
+                    <button type="button" class="btn btn-primary" id="salvarJustificativaBtn">Salvar</button>
                 </div>
             </div>
         </div>
@@ -660,7 +611,19 @@
     <!-- Bootstrap JS -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     
-    <!-- JavaScript Modularizado -->
-    <script src="src/js/app.js" type="module"></script>
+    <!-- JavaScript do Sistema -->
+    <script src="js/app.js" type="module"></script>
+    
+    <!-- Script de verificação de autenticação -->
+    <script>
+        // Verificar se está autenticado antes de carregar
+        (function() {
+            const authData = localStorage.getItem('sistema_faltas_auth');
+            if (!authData) {
+                // Não está autenticado - redirecionar para login
+                window.location.href = 'login.html';
+            }
+        })();
+    </script>
 </body>
 </html>

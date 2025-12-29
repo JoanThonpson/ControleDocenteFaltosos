@@ -1,6 +1,4 @@
-// Funções auxiliares
-import { formatarData } from './formatters.js';
-import { formatarCPF } from './formatters.js';
+import { state } from './storage.js';
 
 // Formatar data
 export function formatarData(data) {
@@ -19,14 +17,14 @@ export function formatarCPF(cpf) {
 
 // Obter docente por ID
 export function getDocenteById(id) {
-    const docente = docentes.find(d => d.id === id);
+    const docente = state.docentes.find(d => d.id === id);
     return docente || { nome: 'Docente não encontrado', disciplinas: [], cursos: [], aulas: 0 };
 }
 
 // Obter próximo ID
 export function getProximoId(lista) {
-    if (lista.length === 0) return 1;
-    return Math.max(...lista.map(item => item.id)) + 1;
+    if (state[lista].length === 0) return 1;
+    return Math.max(...state[lista].map(item => item.id)) + 1;
 }
 
 // Validar CPF

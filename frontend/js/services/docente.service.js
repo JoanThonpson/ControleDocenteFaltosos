@@ -1,10 +1,6 @@
-import { 
-    docentes, editandoDocenteId,
-    salvarDocentes, getProximoId
-} from '../utils/storage.js';
+import { state, salvarDocentes, salvarDisciplinas, salvarCursos } from '../utils/storage.js';
 import { carregarSelectsDisciplinas, carregarSelectsCursos } from './config.service.js';
 import { validarNovaDisciplina, validarNovoCurso } from '../utils/validators.js';
-import { carregarFaltas } from './falta.service.js';
 
 // Carregar docentes
 export function carregarDocentes() {
@@ -18,7 +14,7 @@ export function carregarDocentes() {
     select.innerHTML = '<option value="">Selecione um docente</option>';
     filtroSelect.innerHTML = '<option value="">Todos os docentes</option>';
     
-    docentes.forEach(docente => {
+    state.docentes.forEach(docente => {
         // Adicionar à tabela
         const tr = document.createElement('tr');
         tr.innerHTML = `
@@ -55,7 +51,7 @@ export function carregarDocentes() {
 
 // Mostrar modal de docente
 export function showAddDocenteModal() {
-    editandoDocenteId = null;
+    state.editandoDocenteId = null;
     document.getElementById('docenteModalTitle').textContent = 'Cadastrar Docente';
     document.getElementById('salvarDocenteBtn').textContent = 'Salvar';
     
@@ -68,8 +64,8 @@ export function showAddDocenteModal() {
 
 // Editar docente
 export function editarDocente(id) {
-    editandoDocenteId = id;
-    const docente = docentes.find(d => d.id === id);
+    state.editandoDocenteId = id;
+    const docente = state.docentes.find(d => d.id === id);
     
     if (!docente) return;
     
@@ -127,9 +123,9 @@ export function salvarDocente() {
     }
     
     // Adicionar ou editar
-    if (editandoDocenteId) {
-        const index = docentes.findIndex(d => d.id === editandoDocenteId);
-        const docente = docentes[index];
+    if (state.editandoDocenteId) {
+        const index = state.docentes.findIndex(d => d.id === state.editandoDocenteId);
+        const docente = state.docentes[index];
         
         if (!docente.disciplinas.includes(disciplina)) {
             docente.disciplinas.push(disciplina);
@@ -138,30 +134,30 @@ export function salvarDocente() {
             docente.cursos.push(curso);
         }
         
-        docentes[index] = {
+        state.docentes[index] = {
             ...docente,
             nome: nome,
             aulas: aulas
         };
     } else {
         const novoDocente = {
-            id: getProximoId(docentes),
+            id: state.docentes.length > 0 ? Math.max(...state.docentes.map(d => d.id)) + 1 : 1,
             nome: nome,
             disciplinas: [disciplina],
             cursos: [curso],
             aulas: aulas
         };
-        docentes.push(novoDocente);
+        state.docentes.push(novoDocente);
     }
     
     carregarDocentes();
-    carregarFaltas();
+    // carregarFaltas(); // Será chamada quando o serviço for atualizado
     
     const modal = bootstrap.Modal.getInstance(document.getElementById('addDocenteModal'));
     modal.hide();
     
-    alert(editandoDocenteId ? 'Docente atualizado com sucesso!' : 'Docente cadastrado com sucesso!');
-    editandoDocenteId = null;
+    alert(state.editandoDocenteId ? 'Docente atualizado com sucesso!' : 'Docente cadastrado com sucesso!');
+    state.editandoDocenteId = null;
 }
 
 // Excluir docente
@@ -169,21 +165,21 @@ export function excluirDocente(id) {
     if (!confirm('Tem certeza que deseja excluir este docente?')) return;
     
     // Verificar se há faltas associadas
-    const faltasAssociadas = faltas.filter(f => f.docenteId === id);
+    const faltasAssociadas = state.faltas.filter(f => f.docenteId === id);
     if (faltasAssociadas.length > 0) {
         if (!confirm(`Este docente possui ${faltasAssociadas.length} falta(s) registrada(s). Deseja excluir mesmo assim?`)) {
             return;
         }
     }
     
-    const index = docentes.findIndex(d => d.id === id);
-    docentes.splice(index, 1);
+    const index = state.docentes.findIndex(d => d.id === id);
+    state.docentes.splice(index, 1);
     
     // Remover faltas associadas
-    faltas = faltas.filter(f => f.docenteId !== id);
+    state.faltas = state.faltas.filter(f => f.docenteId !== id);
     
     carregarDocentes();
-    carregarFaltas();
+    // carregarFaltas(); // Será chamada quando o serviço for atualizado
     alert('Docente excluído com sucesso!');
 }
 

@@ -1,8 +1,5 @@
-import { 
-    faltas, docentes, editandoFaltaId,
-    salvarFaltas, getProximoId
-} from '../utils/storage.js';
-import { formatarData, getDocenteById } from '../utils/helpers.js';
+import { state, salvarFaltas } from '../utils/storage.js';
+import { formatarData } from '../utils/helpers.js';
 
 // Carregar faltas
 export function carregarFaltas() {
@@ -15,7 +12,7 @@ export function carregarFaltas() {
     const anoFiltro = document.getElementById('filtroAno')?.value;
     const docenteFiltro = document.getElementById('filtroDocente')?.value;
     
-    const faltasFiltradas = faltas.filter(falta => {
+    const faltasFiltradas = state.faltas.filter(falta => {
         const data = new Date(falta.data);
         const mes = data.getMonth() + 1;
         const ano = data.getFullYear();
@@ -28,10 +25,10 @@ export function carregarFaltas() {
     });
     
     faltasFiltradas.forEach(falta => {
-        const docente = getDocenteById(falta.docenteId);
+        const docente = state.docentes.find(d => d.id === falta.docenteId);
         const tr = document.createElement('tr');
         tr.innerHTML = `
-            <td>${docente.nome}</td>
+            <td>${docente ? docente.nome : 'Docente não encontrado'}</td>
             <td>${falta.disciplina}</td>
             <td>${falta.curso}</td>
             <td>${formatarData(falta.data)}</td>
@@ -62,7 +59,7 @@ export function carregarFaltas() {
 
 // Mostrar modal de falta
 export function showAddFaltaModal() {
-    editandoFaltaId = null;
+    state.editandoFaltaId = null;
     document.getElementById('faltaModalTitle').textContent = 'Registrar Falta';
     document.getElementById('salvarFaltaBtn').textContent = 'Salvar';
     
@@ -83,7 +80,7 @@ export function carregarDisciplinasCursos() {
     disciplinaSelect.innerHTML = '<option value="">Selecione uma disciplina</option>';
     cursoSelect.innerHTML = '<option value="">Selecione um curso</option>';
     
-    const docente = docentes.find(d => d.id === docenteId);
+    const docente = state.docentes.find(d => d.id === docenteId);
     if (docente) {
         docente.disciplinas.forEach(disciplina => {
             const option = document.createElement('option');
@@ -103,8 +100,8 @@ export function carregarDisciplinasCursos() {
 
 // Editar falta
 export function editarFalta(id) {
-    editandoFaltaId = id;
-    const falta = faltas.find(f => f.id === id);
+    state.editandoFaltaId = id;
+    const falta = state.faltas.find(f => f.id === id);
     
     if (!falta) return;
     
@@ -148,10 +145,10 @@ export function salvarFalta() {
     }
     
     // Salvar ou editar
-    if (editandoFaltaId) {
-        const index = faltas.findIndex(f => f.id === editandoFaltaId);
-        faltas[index] = {
-            ...faltas[index],
+    if (state.editandoFaltaId) {
+        const index = state.faltas.findIndex(f => f.id === state.editandoFaltaId);
+        state.faltas[index] = {
+            ...state.faltas[index],
             docenteId: docenteId,
             disciplina: disciplina,
             curso: curso,
@@ -165,7 +162,7 @@ export function salvarFalta() {
         };
     } else {
         const novaFalta = {
-            id: getProximoId(faltas),
+            id: state.faltas.length > 0 ? Math.max(...state.faltas.map(f => f.id)) + 1 : 1,
             docenteId: docenteId,
             disciplina: disciplina,
             curso: curso,
@@ -177,7 +174,7 @@ export function salvarFalta() {
             horarioFim: horarioFim,
             status: justificativa ? 'justificada' : 'não justificada'
         };
-        faltas.push(novaFalta);
+        state.faltas.push(novaFalta);
     }
     
     carregarFaltas();
@@ -185,15 +182,15 @@ export function salvarFalta() {
     const modal = bootstrap.Modal.getInstance(document.getElementById('addFaltaModal'));
     modal.hide();
     
-    alert(editandoFaltaId ? 'Falta atualizada com sucesso!' : 'Falta registrada com sucesso!');
-    editandoFaltaId = null;
+    alert(state.editandoFaltaId ? 'Falta atualizada com sucesso!' : 'Falta registrada com sucesso!');
+    state.editandoFaltaId = null;
 }
 
 // Excluir falta
 export function excluirFalta(id) {
     if (confirm('Tem certeza que deseja excluir este registro de falta?')) {
-        const index = faltas.findIndex(f => f.id === id);
-        faltas.splice(index, 1);
+        const index = state.faltas.findIndex(f => f.id === id);
+        state.faltas.splice(index, 1);
         carregarFaltas();
         alert('Falta excluída com sucesso!');
     }

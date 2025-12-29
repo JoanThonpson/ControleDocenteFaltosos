@@ -1,4 +1,4 @@
-import { docentes, faltas } from '../utils/storage.js';
+import { state } from '../utils/storage.js';
 import { formatarData } from '../utils/helpers.js';
 
 // Aplicar filtro nas estatísticas
@@ -14,10 +14,10 @@ export function carregarEstatisticas() {
     const dataInicio = document.getElementById('dataInicio').value;
     const dataFim = document.getElementById('dataFim').value;
     
-    let faltasFiltradas = faltas;
+    let faltasFiltradas = state.faltas;
     
     if (dataInicio && dataFim) {
-        faltasFiltradas = faltas.filter(falta => {
+        faltasFiltradas = state.faltas.filter(falta => {
             const dataFalta = new Date(falta.data);
             const inicio = new Date(dataInicio);
             const fim = new Date(dataFim);
@@ -28,7 +28,7 @@ export function carregarEstatisticas() {
     const totalFaltas = faltasFiltradas.reduce((sum, falta) => sum + falta.quantidadeFaltas, 0);
     const faltasJustificadas = faltasFiltradas.filter(f => f.status === 'justificada')
         .reduce((sum, falta) => sum + falta.quantidadeFaltas, 0);
-    const totalDocentes = docentes.length;
+    const totalDocentes = state.docentes.length;
 
     container.innerHTML = `
         <p><strong>Total de Docentes:</strong> ${totalDocentes}</p>
@@ -49,7 +49,7 @@ export function gerarRelatorioFaltas() {
         return;
     }
     
-    let faltasFiltradas = faltas.filter(falta => {
+    let faltasFiltradas = state.faltas.filter(falta => {
         const dataFalta = new Date(falta.data);
         const inicio = new Date(dataInicio);
         const fim = new Date(dataFim);
@@ -75,7 +75,7 @@ export function gerarRelatorioFaltas() {
     ];
     
     const dados = faltasFiltradas.map(falta => {
-        const docente = docentes.find(d => d.id === falta.docenteId);
+        const docente = state.docentes.find(d => d.id === falta.docenteId);
         return [
             docente ? docente.nome : 'Não encontrado',
             falta.disciplina,
@@ -108,8 +108,8 @@ export function gerarRelatorioDocentes() {
         return;
     }
     
-    const dados = docentes.map(docente => {
-        const faltasDocente = faltas.filter(f => 
+    const dados = state.docentes.map(docente => {
+        const faltasDocente = state.faltas.filter(f => 
             f.docenteId === docente.id && 
             new Date(f.data) >= new Date(dataInicio) && 
             new Date(f.data) <= new Date(dataFim)

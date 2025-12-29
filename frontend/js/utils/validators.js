@@ -1,5 +1,4 @@
-// Funções de validação
-import { disciplinas, cursos, justificativas } from './storage.js';
+import { state } from './storage.js';
 
 export function validarNovaDisciplina(nome) {
     if (!nome.trim()) {
@@ -8,7 +7,7 @@ export function validarNovaDisciplina(nome) {
     }
     
     const nomeNormalizado = nome.trim().toLowerCase();
-    const existe = disciplinas.some(d => d.trim().toLowerCase() === nomeNormalizado);
+    const existe = state.disciplinas.some(d => d.trim().toLowerCase() === nomeNormalizado);
     
     if (existe) {
         alert('Esta disciplina já está cadastrada!');
@@ -25,10 +24,10 @@ export function validarNovoCurso(nome) {
     }
     
     const nomeNormalizado = nome.trim().toLowerCase();
-    const existe = cursos.some(c => c.trim().toLowerCase() === nomeNormalizado);
+    const existe = state.cursos.some(c => c.trim().toLowerCase() === nomeNormalizado);
     
     if (existe) {
-        alert('Este curso já está cadastrado!');
+        alert('Este curso já está cadastrada!');
         return false;
     }
     
@@ -42,7 +41,7 @@ export function validarNovaJustificativa(descricao) {
     }
     
     const descricaoNormalizada = descricao.trim().toLowerCase();
-    const existe = justificativas.some(j => j.trim().toLowerCase() === descricaoNormalizada);
+    const existe = state.justificativas.some(j => j.trim().toLowerCase() === descricaoNormalizada);
     
     if (existe) {
         alert('Esta justificativa já está cadastrada!');
