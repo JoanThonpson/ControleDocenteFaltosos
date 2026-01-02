@@ -42,9 +42,6 @@
                 </span>
                 <div class="navbar-nav ms-auto">
                     <span class="navbar-text me-3" id="userInfo"></span>
-                    <button class="btn btn-outline-light btn-sm me-2 hidden" id="gerenciarUsuariosBtn">
-                        <i class="fas fa-users-cog"></i> Gerenciar Usuários
-                    </button>
                     <button class="btn btn-outline-light btn-sm me-2" id="configBtn">
                         <i class="fas fa-cog"></i> Configurações
                     </button>
@@ -246,9 +243,6 @@
                                     <div class="card">
                                         <div class="card-body">
                                             <h6>Relatórios</h6>
-                                            <button class="btn btn-outline-primary btn-sm mb-2 w-100" id="gerarRelatorioExcelBtn">
-                                                <i class="fas fa-file-excel"></i> Relatório de Faltas (Excel)
-                                            </button>
                                             <button class="btn btn-outline-info btn-sm mb-2 w-100" id="gerarRelatorioPDFBtn">
                                                 <i class="fas fa-file-pdf"></i> Relatório de Docentes (PDF)
                                             </button>
@@ -276,37 +270,6 @@
     </div>
 
     <!-- ========== MODAIS (todos os 11 modais) ========== -->
-    
-    <!-- Modal Gerenciar Usuários -->
-    <div class="modal fade" id="gerenciarUsuariosModal" tabindex="-1">
-        <div class="modal-dialog modal-lg">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title">Gerenciar Usuários</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                </div>
-                <div class="modal-body">
-                    <button class="btn btn-success btn-sm mb-3" id="addUsuarioBtn">
-                        <i class="fas fa-user-plus"></i> Novo Usuário
-                    </button>
-                    <div class="table-responsive">
-                        <table class="table table-striped">
-                            <thead>
-                                <tr>
-                                    <th>Nome</th>
-                                    <th>CPF</th>
-                                    <th>Tipo</th>
-                                    <th>Data de Criação</th>
-                                    <th>Ações</th>
-                                </tr>
-                            </thead>
-                            <tbody id="usuariosTableBody"></tbody>
-                        </table>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
 
     <!-- Modal Adicionar Usuário -->
     <div class="modal fade" id="addUsuarioModal" tabindex="-1">
@@ -489,58 +452,86 @@
     </div>
 
     <!-- Modal Configurações -->
-    <div class="modal fade" id="configModal" tabindex="-1">
-        <div class="modal-dialog modal-lg">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title">Configurações do Sistema</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                </div>
-                <div class="modal-body">
-                    <ul class="nav nav-tabs" id="configTabs">
-                        <li class="nav-item">
-                            <a class="nav-link active" data-bs-toggle="tab" href="#tabDisciplinas">Disciplinas</a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link" data-bs-toggle="tab" href="#tabCursos">Cursos</a>
-                        </li>
-                    </ul>
-                    
-                    <div class="tab-content mt-3">
-                        <!-- Aba Disciplinas -->
-                        <div class="tab-pane fade show active" id="tabDisciplinas">
-                            <div class="mb-3">
-                                <div class="input-group">
-                                    <input type="text" id="buscaDisciplina" class="form-control" placeholder="Buscar disciplina...">
-                                    <button class="btn btn-success" id="addDisciplinaBtn">
-                                        <i class="fas fa-plus"></i> Nova
-                                    </button>
-                                </div>
-                            </div>
-                            <div class="list-group" id="listaDisciplinas" style="max-height: 400px; overflow-y: auto;">
-                                <!-- Lista de disciplinas será preenchida via JavaScript -->
+<div class="modal fade" id="configModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Configurações do Sistema</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <ul class="nav nav-tabs" id="configTabs">
+                    <li class="nav-item">
+                        <a class="nav-link active" data-bs-toggle="tab" href="#tabDisciplinas">Disciplinas</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" data-bs-toggle="tab" href="#tabCursos">Cursos</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" data-bs-toggle="tab" href="#tabUsuarios">Usuários</a>
+                    </li>
+                </ul>
+                
+                <div class="tab-content mt-3">
+                    <!-- Aba Disciplinas -->
+                    <div class="tab-pane fade show active" id="tabDisciplinas">
+                        <div class="mb-3">
+                            <div class="input-group">
+                                <input type="text" id="buscaDisciplina" class="form-control" placeholder="Buscar disciplina...">
+                                <button class="btn btn-success" id="addDisciplinaBtn">
+                                    <i class="fas fa-plus"></i> Nova
+                                </button>
                             </div>
                         </div>
-                        
-                        <!-- Aba Cursos -->
-                        <div class="tab-pane fade" id="tabCursos">
-                            <div class="mb-3">
-                                <div class="input-group">
-                                    <input type="text" id="buscaCurso" class="form-control" placeholder="Buscar curso...">
-                                    <button class="btn btn-success" id="addCursoBtn">
-                                        <i class="fas fa-plus"></i> Novo
-                                    </button>
-                                </div>
+                        <div class="list-group" id="listaDisciplinas" style="max-height: 400px; overflow-y: auto;">
+                            <!-- Lista de disciplinas será preenchida via JavaScript -->
+                        </div>
+                    </div>
+                    
+                    <!-- Aba Cursos -->
+                    <div class="tab-pane fade" id="tabCursos">
+                        <div class="mb-3">
+                            <div class="input-group">
+                                <input type="text" id="buscaCurso" class="form-control" placeholder="Buscar curso...">
+                                <button class="btn btn-success" id="addCursoBtn">
+                                    <i class="fas fa-plus"></i> Novo
+                                </button>
                             </div>
-                            <div class="list-group" id="listaCursos" style="max-height: 400px; overflow-y: auto;">
-                                <!-- Lista de cursos será preenchida via JavaScript -->
+                        </div>
+                        <div class="list-group" id="listaCursos" style="max-height: 400px; overflow-y: auto;">
+                            <!-- Lista de cursos será preenchida via JavaScript -->
+                        </div>
+                    </div>
+
+                    <!-- NOVA ABA: Usuários -->
+                    <div class="tab-pane fade" id="tabUsuarios">
+                        <div class="mb-3">
+                            <button class="btn btn-success btn-sm mb-3" id="addUsuarioBtnConfig">
+                                <i class="fas fa-user-plus"></i> Novo Usuário
+                            </button>
+                            <div class="table-responsive">
+                                <table class="table table-striped">
+                                    <thead>
+                                        <tr>
+                                            <th>Nome</th>
+                                            <th>CPF</th>
+                                            <th>Tipo</th>
+                                            <th>Data de Criação</th>
+                                            <th>Ações</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="usuariosTableBodyConfig">
+                                        <!-- Usuários serão carregados aqui -->
+                                    </tbody>
+                                </table>
                             </div>
                         </div>
                     </div>
-                </div>
-            </div>
-        </div>
-    </div>
+                </div> 
+            </div> 
+        </div> 
+    </div> 
+</div> 
 
     <!-- Modal Adicionar Disciplina -->
     <div class="modal fade" id="addDisciplinaModal" tabindex="-1">
@@ -612,18 +603,6 @@
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     
     <!-- JavaScript do Sistema -->
-    <script src="js/app.js"></script>
-    
-    <!-- Script de verificação de autenticação -->
-    <script>
-        // Verificar se está autenticado antes de carregar
-        (function() {
-            const authData = localStorage.getItem('sistema_faltas_auth');
-            if (!authData) {
-                // Não está autenticado - redirecionar para login
-                window.location.href = 'login.html';
-            }
-        })();
-    </script>
+    <script type="module" src="js/main.js"></script>
 </body>
 </html>

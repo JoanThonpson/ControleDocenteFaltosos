@@ -1,7 +1,7 @@
-// src/js/utils/storage.js
-// Estado global centralizado do sistema
+// js/utils/storage.js
+// Estado global centralizado do sistema - ATUALIZADO COM DADOS DO MODELO
 export const state = {
-    // Arrays de configuração
+    // Arrays de configuração - INICIALIZADOS VAZIOS (serão carregados)
     disciplinas: [],
     cursos: [],
     justificativas: [],
@@ -20,11 +20,11 @@ export const state = {
     editandoFaltaId: null,
     editandoDocenteId: null,
     
-    // Estado temporário (usado apenas no modal de resetar senha)
+    // Estado temporário
     usuarioResetSenha: null
 };
 
-// Funções de hash de senha
+// Funções de hash de senha (MANTIDAS DO MODELO)
 export function hashPassword(password) {
     return btoa(unescape(encodeURIComponent(password)));
 }
@@ -33,11 +33,11 @@ export function verifyPassword(inputPassword, storedHash) {
     return hashPassword(inputPassword) === storedHash;
 }
 
-// Inicializar sistema - carrega dados do localStorage ou usa padrões
+// Inicializar sistema - ATUALIZADO COM DADOS DO MODELO
 export function inicializarSistema() {
-    console.log('Inicializando sistema de storage...');
+    console.log('Inicializando sistema de storage com dados do modelo...');
     
-    // Carregar ou inicializar cada tipo de dado
+    // Carregar ou inicializar cada tipo de dado com dados do modelo
     carregarOuInicializar('sistema_faltas_usuarios', 'usuarios', getUsuariosPadrao());
     carregarOuInicializar('sistema_faltas_disciplinas', 'disciplinas', getDisciplinasPadrao());
     carregarOuInicializar('sistema_faltas_cursos', 'cursos', getCursosPadrao());
@@ -45,17 +45,24 @@ export function inicializarSistema() {
     carregarOuInicializar('sistema_faltas_docentes', 'docentes', getDocentesPadrao());
     carregarOuInicializar('sistema_faltas_faltas', 'faltas', getFaltasPadrao());
     
-    console.log('Sistema de storage inicializado!');
+    console.log('Sistema de storage inicializado!', {
+        usuarios: state.usuarios.length,
+        disciplinas: state.disciplinas.length,
+        cursos: state.cursos.length,
+        justificativas: state.justificativas.length,
+        docentes: state.docentes.length,
+        faltas: state.faltas.length
+    });
 }
 
-// Dados padrão
+// Dados padrão ATUALIZADOS com base no modelo monolítico
 function getUsuariosPadrao() {
     return [
         {
             id: 1,
             nome: "Administrador Sistema",
-            cpf: "12345678900",
-            password: hashPassword("admin123"),
+            cpf: "123.456.789-00",
+            password: hashPassword("admin123"), // SENHA: admin123
             tipo: "admin",
             dataCriacao: new Date().toISOString(),
             ativo: true
@@ -63,8 +70,8 @@ function getUsuariosPadrao() {
         {
             id: 2,
             nome: "Gestor Teste",
-            cpf: "98765432100",
-            password: hashPassword("gestor123"),
+            cpf: "987.654.321-00",
+            password: hashPassword("gestor123"), // SENHA: gestor123
             tipo: "gestor",
             dataCriacao: new Date().toISOString(),
             ativo: true
@@ -72,8 +79,8 @@ function getUsuariosPadrao() {
         {
             id: 3,
             nome: "Usuário Teste",
-            cpf: "11122233344",
-            password: hashPassword("user123"),
+            cpf: "111.222.333-44",
+            password: hashPassword("user123"), // SENHA: user123
             tipo: "user",
             dataCriacao: new Date().toISOString(),
             ativo: true
@@ -154,13 +161,15 @@ function carregarOuInicializar(chaveStorage, propriedadeState, valorPadrao) {
     const dadosSalvos = localStorage.getItem(chaveStorage);
     if (dadosSalvos) {
         state[propriedadeState] = JSON.parse(dadosSalvos);
+        console.log(`Carregados ${state[propriedadeState].length} ${propriedadeState} do localStorage`);
     } else {
         state[propriedadeState] = valorPadrao;
         localStorage.setItem(chaveStorage, JSON.stringify(valorPadrao));
+        console.log(`Inicializados ${valorPadrao.length} ${propriedadeState} padrão`);
     }
 }
 
-// Funções de salvamento individual
+// Funções de salvamento individual (MANTIDAS)
 export function salvarUsuarios() {
     localStorage.setItem('sistema_faltas_usuarios', JSON.stringify(state.usuarios));
 }
@@ -193,6 +202,7 @@ export function salvarTodosDados() {
     salvarJustificativas();
     salvarDocentes();
     salvarFaltas();
+    console.log('Todos os dados salvos no localStorage');
 }
 
 // Funções auxiliares para obter dados
