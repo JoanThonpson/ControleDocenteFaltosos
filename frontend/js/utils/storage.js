@@ -159,7 +159,7 @@ const SistemaStorage = {
         }
         
         this.disciplinas.push(nomeNormalizado);
-        this.disciplinas.sort(); // Ordenar alfabeticamente
+        this.disciplinas.sort();
         this.salvar('disciplinas', this.disciplinas);
         console.log(`Disciplina "${nome}" adicionada`);
         return true;
@@ -203,7 +203,7 @@ const SistemaStorage = {
         }
         
         this.cursos.push(nomeNormalizado);
-        this.cursos.sort(); // Ordenar alfabeticamente
+        this.cursos.sort();
         this.salvar('cursos', this.cursos);
         console.log(`Curso "${nome}" adicionado`);
         return true;
@@ -247,7 +247,7 @@ const SistemaStorage = {
         }
         
         this.justificativas.push(descricaoNormalizada);
-        this.justificativas.sort(); // Ordenar alfabeticamente
+        this.justificativas.sort();
         this.salvar('justificativas', this.justificativas);
         console.log(`Justificativa "${descricao}" adicionada`);
         return true;
@@ -296,6 +296,12 @@ const SistemaStorage = {
     removerDocente: function(id) {
         const index = this.docentes.findIndex(d => d.id === id);
         if (index === -1) return false;
+        
+        // Verificar se docente tem faltas
+        if (this.docenteEmUso(id)) {
+            console.log(`Docente ID ${id} está em uso (tem faltas registradas)`);
+            return false;
+        }
         
         const docente = this.docentes[index];
         this.docentes.splice(index, 1);
@@ -374,6 +380,11 @@ const SistemaStorage = {
         return this.faltas.some(f => f.justificativa === descricao);
     },
     
+    // Novo método para verificar se docente tem faltas
+    docenteEmUso: function(id) {
+        return this.faltas.some(f => f.docenteId === id);
+    },
+    
     // ========== AUTENTICAÇÃO ==========
     setUsuarioAtual: function(usuario) {
         this.usuarioAtual = usuario;
@@ -394,7 +405,6 @@ const SistemaStorage = {
     },
     
     // ========== EXPORTAÇÃO ==========
-    // Métodos para uso em outros arquivos
     exportarDados: function() {
         return {
             disciplinas: this.disciplinas,
