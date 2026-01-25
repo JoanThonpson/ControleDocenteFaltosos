@@ -364,6 +364,17 @@ const SistemaStorage = {
     getJustificativasOrdenadas: function() {
         return [...this.justificativas].sort();
     },
+
+    // MÉTODOS PARA OBTER DADOS ESPECÍFICOS DO DOCENTE
+    getDisciplinasPorDocente: function(id) {
+    const docente = this.getDocentePorId(id);
+    return docente ? docente.disciplinas || [] : [];
+    },
+
+    getCursosPorDocente: function(id) {
+    const docente = this.getDocentePorId(id);
+    return docente ? docente.cursos || [] : [];
+    },
     
     // Verificar uso
     disciplinaEmUso: function(nome) {

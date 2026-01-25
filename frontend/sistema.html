@@ -73,7 +73,7 @@
                 </li>
                 <li class="nav-item" id="adminTabItem">
                     <a class="nav-link" href="#controle" data-bs-toggle="tab">
-                        <i class="fas fa-cog"></i> Controle Administrativo
+                        <i class="fas fa-cog"></i> Relatórios e Estatísticas
                     </a>
                 </li>
             </ul>
@@ -206,8 +206,8 @@
                             </div>
 
                             <div class="table-responsive">
-                                <table class="table table-striped">
-                                    <thead class="table-dark">
+                                <table class="table table-striped text-center align-middle">
+                                    <thead class="table-dark text-center">
                                         <tr>
                                             <th>ID</th>
                                             <th>Nome</th>
@@ -233,7 +233,10 @@
                         <div class="card-header d-flex justify-content-between align-items-center">
                             <div>
                                 <h5 class="mb-0">Justificativas Cadastradas</h5>
-                                <small class="text-muted">Para adicionar/editar/excluir, use a tela de Configurações</small>
+                                <small class="text-muted">
+                                                <i class="fas fa-lightbulb me-1"></i>
+                                                <strong>Dica:</strong> Justificativas podem ser editadas ou excluídas na aba de Configurações
+                                            </small>
                             </div>
                             <button class="btn btn-outline-primary btn-sm" onclick="showConfigModal()">
                                 <i class="fas fa-cog me-1"></i> Ir para Configurações
@@ -262,25 +265,6 @@
                             <div class="list-group" id="listaJustificativas" style="max-height: 500px; overflow-y: auto;">
                                 <!-- Lista será preenchida via JavaScript -->
                             </div>
-                            
-                            <!-- Resumo -->
-                            <div class="mt-4 pt-3 border-top">
-                                <div class="row">
-                                    <div class="col-md-6">
-                                        <div class="alert alert-light border">
-                                            <small class="text-muted">
-                                                <i class="fas fa-lightbulb me-1"></i>
-                                                <strong>Dica:</strong> Justificativas podem ser editadas ou excluídas na aba de Configurações
-                                            </small>
-                                        </div>
-                                    </div>
-                                    <div class="col-md-6 text-end">
-                                        <button class="btn btn-sm btn-outline-success" onclick="showConfigModal()">
-                                            <i class="fas fa-plus me-1"></i> Adicionar Nova Justificativa
-                                        </button>
-                                    </div>
-                                </div>
-                            </div>
                         </div>
                     </div>
                 </div>
@@ -292,51 +276,6 @@
                             <h5 class="mb-0">Estatísticas e Relatórios</h5>
                         </div>
                         <div class="card-body">
-                            <!-- Filtros para Estatísticas -->
-                            <div class="filtro-container mb-4">
-                                <div class="row">
-                                    <div class="col-md-3">
-                                        <label class="form-label">Mês:</label>
-                                        <select id="estatisticaMes" class="form-select">
-                                            <option value="">Todos os meses</option>
-                                            <option value="01">Janeiro</option>
-                                            <option value="02">Fevereiro</option>
-                                            <option value="03">Março</option>
-                                            <option value="04">Abril</option>
-                                            <option value="05">Maio</option>
-                                            <option value="06">Junho</option>
-                                            <option value="07">Julho</option>
-                                            <option value="08">Agosto</option>
-                                            <option value="09">Setembro</option>
-                                            <option value="10">Outubro</option>
-                                            <option value="11">Novembro</option>
-                                            <option value="12">Dezembro</option>
-                                        </select>
-                                    </div>
-                                    <div class="col-md-3">
-                                        <label class="form-label">Ano:</label>
-                                        <select id="estatisticaAno" class="form-select">
-                                            <option value="">Todos os anos</option>
-                                            <!-- Preenchido dinamicamente -->
-                                        </select>
-                                    </div>
-                                    <div class="col-md-3">
-                                        <label class="form-label">Docente:</label>
-                                        <select id="estatisticaDocente" class="form-select">
-                                            <option value="">Todos os docentes</option>
-                                            <!-- Preenchido dinamicamente -->
-                                        </select>
-                                    </div>
-                                    <div class="col-md-3">
-                                        <label class="form-label">Status:</label>
-                                        <select id="estatisticaStatus" class="form-select">
-                                            <option value="">Todos</option>
-                                            <option value="ativo">Ativo</option>
-                                            <option value="inativo">Inativo</option>
-                                        </select>
-                                    </div>
-                                </div>
-                            </div>
 
                             <!-- Conteúdo da aba Controle Administrativo -->
                             <div class="row mt-3">

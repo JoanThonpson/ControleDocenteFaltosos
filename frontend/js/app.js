@@ -767,10 +767,17 @@ function abrirModalDocenteAvancado(id = null) {
         modalTitle.textContent = id ? 'Editar Docente' : 'Cadastrar Docente';
     }
     
-    // Mostrar modal
+        // Mostrar modal
     const modalElement = document.getElementById('addDocenteModal');
     if (modalElement) {
-        const modal = new bootstrap.Modal(modalElement);
+        // Verificar se já existe instância
+        let modal = bootstrap.Modal.getInstance(modalElement);
+        
+        if (!modal) {
+            // Criar nova instância
+            modal = new bootstrap.Modal(modalElement);
+        }
+        
         modal.show();
     }
 }
@@ -1094,40 +1101,81 @@ function abrirModalFalta() {
     // Carregar selects com dados do SistemaStorage
     carregarSelectsModalFalta();
     
-    // Mostrar modal
+        // Mostrar modal
     const modalElement = document.getElementById('addFaltaModal');
     if (modalElement) {
-        const modal = new bootstrap.Modal(modalElement);
+        // Verificar se já existe instância
+        let modal = bootstrap.Modal.getInstance(modalElement);
+        
+        if (!modal) {
+            // Criar nova instância
+            modal = new bootstrap.Modal(modalElement);
+        }
+        
         modal.show();
     }
 }
 
-function carregarSelectsModalFalta() {
-    // Carregar disciplinas
+function carregarSelectsModalFalta(docenteId = null) {
+    // Carregar disciplinas (todas ou apenas do docente)
     const disciplinaSelect = document.getElementById('disciplinaSelect');
     if (disciplinaSelect) {
         disciplinaSelect.innerHTML = '<option value="">Selecione uma disciplina</option>';
-        SistemaStorage.getDisciplinasOrdenadas().forEach(disciplina => {
+        
+        let disciplinas = [];
+        if (docenteId) {
+            // Apenas disciplinas do docente selecionado
+            disciplinas = SistemaStorage.getDisciplinasPorDocente(docenteId);
+        } else {
+            // Todas as disciplinas do sistema (modo padrão)
+            disciplinas = SistemaStorage.getDisciplinasOrdenadas();
+        }
+        
+        disciplinas.forEach(disciplina => {
             const option = document.createElement('option');
             option.value = disciplina;
             option.textContent = disciplina;
             disciplinaSelect.appendChild(option);
         });
+        
+        // Se houver apenas uma disciplina, selecione-a automaticamente
+        if (disciplinas.length === 1) {
+            setTimeout(() => {
+                disciplinaSelect.value = disciplinas[0];
+            }, 100);
+        }
     }
     
-    // Carregar cursos
+    // Carregar cursos (todas ou apenas do docente)
     const cursoSelect = document.getElementById('cursoSelect');
     if (cursoSelect) {
         cursoSelect.innerHTML = '<option value="">Selecione um curso</option>';
-        SistemaStorage.getCursosOrdenados().forEach(curso => {
+        
+        let cursos = [];
+        if (docenteId) {
+            // Apenas cursos do docente selecionado
+            cursos = SistemaStorage.getCursosPorDocente(docenteId);
+        } else {
+            // Todos os cursos do sistema (modo padrão)
+            cursos = SistemaStorage.getCursosOrdenados();
+        }
+        
+        cursos.forEach(curso => {
             const option = document.createElement('option');
             option.value = curso;
             option.textContent = curso;
             cursoSelect.appendChild(option);
         });
+        
+        // Se houver apenas um curso, selecione-o automaticamente
+        if (cursos.length === 1) {
+            setTimeout(() => {
+                cursoSelect.value = cursos[0];
+            }, 100);
+        }
     }
     
-    // Carregar justificativas
+    // Carregar justificativas (sempre todas)
     const justificativaSelect = document.getElementById('justificativaSelect');
     if (justificativaSelect) {
         justificativaSelect.innerHTML = '<option value="">Selecione uma justificativa</option>';
@@ -1289,8 +1337,19 @@ function carregarListaDisciplinas() {
 
 function abrirModalAdicionarDisciplina() {
     document.getElementById('novaDisciplinaNome').value = '';
-    const modal = new bootstrap.Modal(document.getElementById('addDisciplinaModal'));
-    modal.show();
+    
+    const modalElement = document.getElementById('addDisciplinaModal');
+    if (modalElement) {
+        // Verificar se já existe instância
+        let modal = bootstrap.Modal.getInstance(modalElement);
+        
+        if (!modal) {
+            // Criar nova instância
+            modal = new bootstrap.Modal(modalElement);
+        }
+        
+        modal.show();
+    }
 }
 
 function salvarDisciplina() {
@@ -1976,7 +2035,7 @@ window.showConfigModal = function() {
 
 // Função para mostrar configurações
 function mostrarModalConfiguracoes() {
-    console.log('Abrindo modal de configurações...');
+    console.log('🔧 Abrindo modal de configurações...');
     
     // Carregar listas antes de abrir
     carregarListaDisciplinas();
@@ -1986,12 +2045,47 @@ function mostrarModalConfiguracoes() {
     // Mostrar modal
     const modalElement = document.getElementById('configModal');
     if (modalElement) {
-        const modal = new bootstrap.Modal(modalElement);
+        // Verificar se já existe uma instância do modal
+        let modal = bootstrap.Modal.getInstance(modalElement);
+        
+        if (!modal) {
+            // Criar nova instância
+            modal = new bootstrap.Modal(modalElement, {
+                backdrop: true,
+                keyboard: true,
+                focus: true
+            });
+        }
+        
+        // Limpar event listeners duplicados (se houver)
+        modalElement.removeEventListener('hidden.bs.modal', limparModalConfiguracoes);
+        
+        // Adicionar event listener para limpeza quando fechar
+        modalElement.addEventListener('hidden.bs.modal', limparModalConfiguracoes);
+        
+        // Mostrar modal
         modal.show();
     } else {
-        console.error('Modal de configurações não encontrado!');
+        console.error('❌ Modal de configurações não encontrado!');
         alert('Erro ao abrir configurações. Recarregue a página.');
     }
+}
+
+// Função para limpar o modal quando fechado
+function limparModalConfiguracoes() {
+    console.log('🧹 Limpando modal de configurações...');
+    
+    // Limpar busca dos inputs
+    const buscaInputs = ['buscaDisciplina', 'buscaCurso', 'buscaJustificativaConfig'];
+    buscaInputs.forEach(id => {
+        const input = document.getElementById(id);
+        if (input) input.value = '';
+    });
+    
+    // Limpar filtros (se aplicável)
+    filtrarDisciplinas();
+    filtrarCursos();
+    filtrarJustificativasConfig();
 }
 
 // Função para carregar justificativas na aba de configurações
@@ -2108,7 +2202,7 @@ function gerarRelatorioDocentes() {
             </style>
         </head>
         <body>
-            <h1>📊 Relatório de Docentes</h1>
+            <h1> Relatório de Docentes</h1>
             <pre>${relatorio}</pre>
             <button class="btn-print" onclick="window.print()">🖨️ Imprimir Relatório</button>
             <button class="btn-print" onclick="window.close()" style="background-color: #95a5a6;">✖️ Fechar</button>
@@ -2117,7 +2211,7 @@ function gerarRelatorioDocentes() {
     `);
     
     console.log('Relatório gerado com sucesso!');
-    alert('📄 Relatório gerado em nova janela!');
+    //alert('📄 Relatório gerado em nova janela!');
 }
 
 // ========== INICIALIZAÇÃO FINAL ==========
