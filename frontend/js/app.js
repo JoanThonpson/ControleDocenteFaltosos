@@ -180,6 +180,8 @@ function configurarEventos() {
 
 // ========== FUNÇÕES DE TABELA ==========
 
+// NO app.js, ATUALIZE a função atualizarTabelaDocentes():
+
 function atualizarTabelaDocentes() {
     const tbody = document.getElementById('docentesTableBody');
     if (!tbody) return;
@@ -191,9 +193,10 @@ function atualizarTabelaDocentes() {
     docentes.forEach(docente => {
         const tr = document.createElement('tr');
         tr.innerHTML = `
+            <td>${docente.id}</td> <!-- NOVA COLUNA: ID -->
             <td>${docente.nome}</td>
-            <td>${docente.disciplinas.join(', ')}</td>
-            <td>${docente.cursos.join(', ')}</td>
+            <td>${docente.disciplinas.join(', ')}</td> <!-- Agora mostra todas as disciplinas -->
+            <td>${docente.cursos.join(', ')}</td> <!-- Agora mostra todos os cursos -->
             <td>${docente.aulas}</td>
             <td>
                 <button class="btn btn-warning btn-sm me-1" onclick="editarDocente(${docente.id})">
@@ -315,6 +318,226 @@ function atualizarTabelaFaltas() {
     });
 }
 
+// Função para abrir modal de docente com múltiplas disciplinas/cursos
+function abrirModalDocenteAvancado(id = null) {
+    docenteEditandoId = id;
+    
+    // Se for edição, carregar dados
+    if (id) {
+        const docente = SistemaStorage.getDocentePorId(id);
+        if (docente) {
+            // Preencher dados básicos
+            document.getElementById('docenteNome').value = docente.nome || '';
+            document.getElementById('docenteAulas').value = docente.aulas || 20;
+            
+            // Carregar disciplinas dinamicamente
+            carregarDisciplinasDoDocente(docente.disciplinas || []);
+            
+            // Carregar cursos dinamicamente
+            carregarCursosDoDocente(docente.cursos || []);
+        }
+    } else {
+        // Novo docente - limpar tudo
+        document.getElementById('docenteNome').value = '';
+        document.getElementById('docenteAulas').value = 20;
+        document.getElementById('listaDisciplinasDocente').innerHTML = '';
+        document.getElementById('listaCursosDocente').innerHTML = '';
+        
+        // Adicionar uma disciplina e curso vazios por padrão
+        adicionarNovaDisciplinaDocente();
+        adicionarNovoCursoDocente();
+    }
+    
+    // Configurar título
+    const modalTitle = document.getElementById('docenteModalTitle');
+    if (modalTitle) {
+        modalTitle.textContent = id ? 'Editar Docente' : 'Cadastrar Docente';
+    }
+    
+    // Mostrar modal
+    const modalElement = document.getElementById('addDocenteModal');
+    if (modalElement) {
+        const modal = new bootstrap.Modal(modalElement);
+        modal.show();
+    }
+}
+
+// Funções auxiliares para o modal avançado
+function carregarDisciplinasDoDocente(disciplinas) {
+    const container = document.getElementById('listaDisciplinasDocente');
+    if (!container) return;
+    
+    container.innerHTML = '';
+    
+    disciplinas.forEach((disciplina, index) => {
+        const item = criarItemDisciplinaDocente(disciplina, index);
+        container.appendChild(item);
+    });
+    
+    // Se não houver disciplinas, adicionar uma vazia
+    if (disciplinas.length === 0) {
+        adicionarNovaDisciplinaDocente();
+    }
+}
+
+function carregarCursosDoDocente(cursos) {
+    const container = document.getElementById('listaCursosDocente');
+    if (!container) return;
+    
+    container.innerHTML = '';
+    
+    cursos.forEach((curso, index) => {
+        const item = criarItemCursoDocente(curso, index);
+        container.appendChild(item);
+    });
+    
+    // Se não houver cursos, adicionar um vazio
+    if (cursos.length === 0) {
+        adicionarNovoCursoDocente();
+    }
+}
+
+function criarItemDisciplinaDocente(disciplina = '', index) {
+    const div = document.createElement('div');
+    div.className = 'disciplina-item mb-2';
+    div.innerHTML = `
+        <div class="input-group">
+            <select class="form-select disciplina-select" data-index="${index}">
+                <option value="">Selecione uma disciplina</option>
+                ${SistemaStorage.getDisciplinasOrdenadas().map(d => 
+                    `<option value="${d}" ${d === disciplina ? 'selected' : ''}>${d}</option>`
+                ).join('')}
+                <option value="nova_disciplina">+ Nova Disciplina</option>
+            </select>
+            <input type="text" class="form-control nova-disciplina-input ${disciplina && !SistemaStorage.disciplinas.includes(disciplina) ? '' : 'hidden'}" 
+                   placeholder="Digite nova disciplina" value="${disciplina && !SistemaStorage.disciplinas.includes(disciplina) ? disciplina : ''}">
+            <button type="button" class="btn btn-outline-danger" onclick="removerDisciplinaDocente(${index})">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+    `;
+    return div;
+}
+
+function criarItemCursoDocente(curso = '', index) {
+    const div = document.createElement('div');
+    div.className = 'curso-item mb-2';
+    div.innerHTML = `
+        <div class="input-group">
+            <select class="form-select curso-select" data-index="${index}">
+                <option value="">Selecione um curso</option>
+                ${SistemaStorage.getCursosOrdenados().map(c => 
+                    `<option value="${c}" ${c === curso ? 'selected' : ''}>${c}</option>`
+                ).join('')}
+                <option value="novo_curso">+ Novo Curso</option>
+            </select>
+            <input type="text" class="form-control novo-curso-input ${curso && !SistemaStorage.cursos.includes(curso) ? '' : 'hidden'}" 
+                   placeholder="Digite novo curso" value="${curso && !SistemaStorage.cursos.includes(curso) ? curso : ''}">
+            <button type="button" class="btn btn-outline-danger" onclick="removerCursoDocente(${index})">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+    `;
+    return div;
+}
+
+// Funções globais para o modal
+window.adicionarNovaDisciplinaDocente = function() {
+    const container = document.getElementById('listaDisciplinasDocente');
+    if (!container) return;
+    
+    const index = container.querySelectorAll('.disciplina-item').length;
+    const item = criarItemDisciplinaDocente('', index);
+    container.appendChild(item);
+    
+    // Configurar evento de change
+    const select = item.querySelector('.disciplina-select');
+    if (select) {
+        select.addEventListener('change', function() {
+            const novaInput = this.nextElementSibling;
+            if (this.value === 'nova_disciplina') {
+                novaInput.classList.remove('hidden');
+                novaInput.focus();
+            } else {
+                novaInput.classList.add('hidden');
+                novaInput.value = '';
+            }
+        });
+    }
+};
+
+window.adicionarNovoCursoDocente = function() {
+    const container = document.getElementById('listaCursosDocente');
+    if (!container) return;
+    
+    const index = container.querySelectorAll('.curso-item').length;
+    const item = criarItemCursoDocente('', index);
+    container.appendChild(item);
+    
+    // Configurar evento de change
+    const select = item.querySelector('.curso-select');
+    if (select) {
+        select.addEventListener('change', function() {
+            const novaInput = this.nextElementSibling;
+            if (this.value === 'novo_curso') {
+                novaInput.classList.remove('hidden');
+                novaInput.focus();
+            } else {
+                novaInput.classList.add('hidden');
+                novaInput.value = '';
+            }
+        });
+    }
+};
+
+window.removerDisciplinaDocente = function(index) {
+    const container = document.getElementById('listaDisciplinasDocente');
+    if (!container) return;
+    
+    const itens = container.querySelectorAll('.disciplina-item');
+    if (itens.length <= 1) {
+        alert('O docente deve ter pelo menos uma disciplina!');
+        return;
+    }
+    
+    if (index >= 0 && index < itens.length) {
+        itens[index].remove();
+        
+        // Reindexar itens restantes
+        const novosItens = container.querySelectorAll('.disciplina-item');
+        novosItens.forEach((item, newIndex) => {
+            const select = item.querySelector('.disciplina-select');
+            const btn = item.querySelector('.btn-outline-danger');
+            if (select) select.dataset.index = newIndex;
+            if (btn) btn.setAttribute('onclick', `removerDisciplinaDocente(${newIndex})`);
+        });
+    }
+};
+
+window.removerCursoDocente = function(index) {
+    const container = document.getElementById('listaCursosDocente');
+    if (!container) return;
+    
+    const itens = container.querySelectorAll('.curso-item');
+    if (itens.length <= 1) {
+        alert('O docente deve ter pelo menos um curso!');
+        return;
+    }
+    
+    if (index >= 0 && index < itens.length) {
+        itens[index].remove();
+        
+        // Reindexar itens restantes
+        const novosItens = container.querySelectorAll('.curso-item');
+        novosItens.forEach((item, newIndex) => {
+            const select = item.querySelector('.curso-select');
+            const btn = item.querySelector('.btn-outline-danger');
+            if (select) select.dataset.index = newIndex;
+            if (btn) btn.setAttribute('onclick', `removerCursoDocente(${newIndex})`);
+        });
+    }
+};
+
 function atualizarEstatisticas() {
     const container = document.getElementById('estatisticas');
     if (!container) return;
@@ -347,75 +570,8 @@ function formatarData(dataString) {
 
 // Modal Docente
 window.mostrarModalDocente = function() {
-    abrirModalDocente();
+    abrirModalDocenteAvancado();
 };
-
-function abrirModalDocente(id = null) {
-    docenteEditandoId = id;
-    
-    // Resetar formulário
-    const form = document.getElementById('docenteForm');
-    const modalTitle = document.getElementById('docenteModalTitle');
-    
-    if (form) {
-        form.reset();
-        
-        // Configurar título baseado no modo
-        if (modalTitle) {
-            modalTitle.textContent = id ? 'Editar Docente' : 'Cadastrar Docente';
-        }
-        
-        document.getElementById('docenteAulas').value = 20;
-        
-        // Resetar campos extras
-        const novaDisciplinaInput = document.getElementById('novaDisciplinaInput');
-        const novoCursoInput = document.getElementById('novoCursoInput');
-        
-        if (novaDisciplinaInput) {
-            novaDisciplinaInput.classList.add('hidden');
-            novaDisciplinaInput.value = '';
-        }
-        if (novoCursoInput) {
-            novoCursoInput.classList.add('hidden');
-            novoCursoInput.value = '';
-        }
-        
-        // Se for edição, carregar dados do docente
-        if (id) {
-            const docente = SistemaStorage.getDocentePorId(id);
-            if (docente) {
-                document.getElementById('docenteNome').value = docente.nome || '';
-                document.getElementById('docenteAulas').value = docente.aulas || 20;
-                
-                // Preencher disciplina (primeira disciplina)
-                if (docente.disciplinas && docente.disciplinas.length > 0) {
-                    const disciplinaSelect = document.getElementById('docenteDisciplinaSelect');
-                    if (disciplinaSelect) {
-                        disciplinaSelect.value = docente.disciplinas[0];
-                    }
-                }
-                
-                // Preencher curso (primeiro curso)
-                if (docente.cursos && docente.cursos.length > 0) {
-                    const cursoSelect = document.getElementById('docenteCursoSelect');
-                    if (cursoSelect) {
-                        cursoSelect.value = docente.cursos[0];
-                    }
-                }
-            }
-        }
-    }
-    
-    // Carregar selects com dados do SistemaStorage
-    carregarSelectsModalDocente();
-    
-    // Mostrar modal
-    const modalElement = document.getElementById('addDocenteModal');
-    if (modalElement) {
-        const modal = new bootstrap.Modal(modalElement);
-        modal.show();
-    }
-}
 
 function carregarSelectsModalDocente() {
     // Carregar disciplinas no select do modal de docente
@@ -472,57 +628,70 @@ function carregarSelectsModalDocente() {
 }
 
 // Função para salvar docente
+
 function salvarDocente() {
     console.log('Executando salvarDocente()...', { editando: docenteEditandoId });
     
     const nome = document.getElementById('docenteNome')?.value.trim();
-    const disciplinaSelect = document.getElementById('docenteDisciplinaSelect');
-    const cursoSelect = document.getElementById('docenteCursoSelect');
     const aulas = parseInt(document.getElementById('docenteAulas')?.value) || 20;
+    const ativo = document.getElementById('docenteAtivo')?.checked || true;
     
-    // Determinar disciplina (selecionada ou nova)
-    let disciplina = '';
-    if (disciplinaSelect.value === 'nova_disciplina') {
-        const novaDisciplina = document.getElementById('novaDisciplinaInput')?.value.trim();
-        if (!novaDisciplina) {
-            alert('Digite o nome da nova disciplina!');
-            return;
-        }
-        disciplina = novaDisciplina;
-        // Adicionar ao sistema se não existir
-        SistemaStorage.adicionarDisciplina(novaDisciplina);
-    } else {
-        disciplina = disciplinaSelect.value;
-    }
+    // Coletar disciplinas
+    const disciplinasItems = document.querySelectorAll('#listaDisciplinasDocente .disciplina-item');
+    const disciplinas = [];
     
-    // Determinar curso (selecionado ou novo)
-    let curso = '';
-    if (cursoSelect.value === 'novo_curso') {
-        const novoCurso = document.getElementById('novoCursoInput')?.value.trim();
-        if (!novoCurso) {
-            alert('Digite o nome do novo curso!');
-            return;
+    disciplinasItems.forEach(item => {
+        const select = item.querySelector('.disciplina-select');
+        const input = item.querySelector('.nova-disciplina-input');
+        
+        if (select.value === 'nova_disciplina' && input) {
+            const novaDisciplina = input.value.trim();
+            if (novaDisciplina) {
+                disciplinas.push(novaDisciplina);
+                // Adicionar ao sistema global
+                SistemaStorage.adicionarDisciplina(novaDisciplina);
+            }
+        } else if (select.value && select.value !== 'nova_disciplina') {
+            disciplinas.push(select.value);
         }
-        curso = novoCurso;
-        // Adicionar ao sistema se não existir
-        SistemaStorage.adicionarCurso(novoCurso);
-    } else {
-        curso = cursoSelect.value;
-    }
+    });
+    
+    // Coletar cursos
+    const cursosItems = document.querySelectorAll('#listaCursosDocente .curso-item');
+    const cursos = [];
+    
+    cursosItems.forEach(item => {
+        const select = item.querySelector('.curso-select');
+        const input = item.querySelector('.novo-curso-input');
+        
+        if (select.value === 'novo_curso' && input) {
+            const novoCurso = input.value.trim();
+            if (novoCurso) {
+                cursos.push(novoCurso);
+                // Adicionar ao sistema global
+                SistemaStorage.adicionarCurso(novoCurso);
+            }
+        } else if (select.value && select.value !== 'novo_curso') {
+            cursos.push(select.value);
+        }
+    });
     
     // Validações
     if (!nome) {
         alert('Digite o nome do docente!');
         return;
     }
-    if (!disciplina) {
-        alert('Selecione ou digite uma disciplina!');
+    
+    if (disciplinas.length === 0) {
+        alert('Adicione pelo menos uma disciplina!');
         return;
     }
-    if (!curso) {
-        alert('Selecione ou digite um curso!');
+    
+    if (cursos.length === 0) {
+        alert('Adicione pelo menos um curso!');
         return;
     }
+    
     if (aulas <= 0) {
         alert('A quantidade de aulas deve ser maior que zero!');
         return;
@@ -531,9 +700,10 @@ function salvarDocente() {
     // Criar objeto docente
     const dadosDocente = {
         nome: nome,
-        disciplinas: [disciplina],
-        cursos: [curso],
-        aulas: aulas
+        disciplinas: disciplinas,
+        cursos: cursos,
+        aulas: aulas,
+        ativo: ativo
     };
     
     let sucesso = false;
@@ -542,7 +712,7 @@ function salvarDocente() {
     if (docenteEditandoId) {
         // Modo edição
         console.log('Atualizando docente ID:', docenteEditandoId);
-        sucesso = SistemaStorage.atualizarDocente(docenteEditandoId, dadosDocente);
+        sucesso = SistemaStorage.atualizarDocenteCompleto(docenteEditandoId, dadosDocente);
         mensagem = sucesso ? `✅ Docente "${nome}" atualizado com sucesso!` : '❌ Erro ao atualizar docente!';
     } else {
         // Modo criação
@@ -562,6 +732,7 @@ function salvarDocente() {
         
         // Atualizar interface
         atualizarTabelaDocentes();
+        atualizarSelectsDocentes(); // Para filtros de falta
         
         alert(mensagem);
     } else {
@@ -602,7 +773,7 @@ window.toggleNovoCurso = function() {
 window.editarDocente = function(id) {
     const docente = SistemaStorage.getDocentePorId(id);
     if (docente) {
-        abrirModalDocente(id);
+        abrirModalDocenteAvancado(id);
     } else {
         alert('❌ Docente não encontrado!');
     }

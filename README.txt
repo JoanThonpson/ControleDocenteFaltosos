@@ -1,9 +1,8 @@
 sistema-faltas/                # Pasta raiz do projeto
 │
-├── frontend/                  # Frontend completo
-│   ├── login.html            # (FORA do src)
-|   ├── login.html            # (FORA do src)
-│   └── src/                  # Código fonte organizado
+├── frontend/                  # Frontend
+│   ├── login.html            
+|   ├── login.html            
 │       ├── css/              # Estilos
 │       │   ├── styles.css    # Principal
 │       │   ├── login.css     # Específico login
@@ -13,26 +12,11 @@ sistema-faltas/                # Pasta raiz do projeto
 │       │   ├── app.js        # Inicialização
 |       |    ├── login.js        # Inicialização
 │       │   ├── services/     # Serviços/lógica
-│       │   │   ├── auth.service.js
-│       │   │   ├── docente.service.js
-│       │   │   ├── falta.service.js
-│       │   │   ├── config.service.js
-|       |   |    ├── usuario.service.js 
-│       │   │   └── relatorio.service.js
 │       │   │
 │       │   ├── components/   # Componentes UI
-│       │   │   ├── ModalManager.js
-│       │   │   ├── TableRenderer.js
-│       │   │   ├── FormHandler.js falta esse 
-│       │   │   └── FilterManager.js
 │       │   │
 │       │   ├── utils/        # Utilitários
-|       |    |   ├── formatters.js
-|       |    |   ├── state.js
-│       │   │   ├── storage.js
-│       │   │   ├── helpers.js
-│       │   │   └── validators.js
-│       │   │
+│       │   │   ├── storage.js│       │   │
 │       │   └── api/          # (Futuro) API client
 │       │       └── client.js
 │       │
