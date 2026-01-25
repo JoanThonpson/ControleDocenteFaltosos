@@ -4,6 +4,8 @@ console.log('Sistema iniciando...');
 // ========== VARIÁVEIS GLOBAIS PARA CONTROLE ==========
 let docenteEditandoId = null; // Para controlar edição de docente
 let faltaEditandoId = null;   // Para controlar edição de falta
+let filtroStatusAtual = 'todos'; // 'todos', 'ativos', 'inativos'
+let buscaAtual = ''; // Termo de busca atual
 
 // ========== INICIALIZAÇÃO ==========
 document.addEventListener('DOMContentLoaded', function() {
@@ -20,11 +22,8 @@ document.addEventListener('DOMContentLoaded', function() {
     // 3. Configurar eventos
     configurarEventos();
     
-    // 4. Carregar justificativas se estiver na aba
-    const activeTab = document.querySelector('.nav-link.active');
-    if (activeTab && activeTab.getAttribute('href') === '#justificativas') {
-        setTimeout(() => carregarJustificativas(), 100);
-    }
+    // 4. Configurar observador de abas
+    configurarObservadorAbas();
     
     console.log('Sistema pronto!');
 });
@@ -90,13 +89,18 @@ function configurarInterface() {
     }
     
     // Atualizar tabelas
-    atualizarTabelaDocentes();
+    atualizarTabelaDocentes(); 
     atualizarTabelaFaltas();
-    atualizarEstatisticas();
+    atualizarEstatisticasCompletas();
     
     // Atualizar filtro de anos dinamicamente
     atualizarFiltroAnos();
+    
+    // Definir filtro "Todos" como ativo inicialmente
+    setFiltroAtivo('todos');
 }
+
+// ========== CONFIGURAR EVENTOS ==========
 
 function configurarEventos() {
     console.log('Configurando eventos...');
@@ -109,20 +113,17 @@ function configurarEventos() {
     
     // Botão Configurações
     document.getElementById('configBtn')?.addEventListener('click', function() {
-        showConfigModal();
+    mostrarModalConfiguracoes();
     });
     
     // Botão Limpar Filtros
-    const limparFiltrosBtn = document.getElementById('limparFiltrosBtn');
-    if (limparFiltrosBtn) {
-        limparFiltrosBtn.addEventListener('click', function() {
-            document.getElementById('filtroMes').value = '';
-            document.getElementById('filtroAno').value = '';
-            document.getElementById('filtroDocente').value = '';
-            atualizarTabelaFaltas();
-            console.log('✅ Filtros limpos!');
-        });
-    }
+    document.getElementById('limparFiltrosBtn')?.addEventListener('click', function() {
+        document.getElementById('filtroMes').value = '';
+        document.getElementById('filtroAno').value = '';
+        document.getElementById('filtroDocente').value = '';
+        atualizarTabelaFaltas();
+        console.log('✅ Filtros limpos!');
+    });
     
     // Filtros
     document.getElementById('filtroMes')?.addEventListener('change', atualizarTabelaFaltas);
@@ -130,22 +131,10 @@ function configurarEventos() {
     document.getElementById('filtroDocente')?.addEventListener('change', atualizarTabelaFaltas);
     
     // Botão salvar falta
-    const salvarFaltaBtn = document.getElementById('salvarFaltaBtn');
-    if (salvarFaltaBtn) {
-        console.log('Configurando botão salvarFaltaBtn...');
-        salvarFaltaBtn.onclick = salvarFalta;
-    } else {
-        console.error('❌ Botão salvarFaltaBtn não encontrado!');
-    }
+    document.getElementById('salvarFaltaBtn')?.addEventListener('click', salvarFalta);
     
     // Botão salvar docente
-    const salvarDocenteBtn = document.getElementById('salvarDocenteBtn');
-    if (salvarDocenteBtn) {
-        console.log('Configurando botão salvarDocenteBtn...');
-        salvarDocenteBtn.onclick = salvarDocente;
-    } else {
-        console.error('❌ Botão salvarDocenteBtn não encontrado!');
-    }
+    document.getElementById('salvarDocenteBtn')?.addEventListener('click', salvarDocente);
     
     // Botões de configurações
     document.getElementById('btnNovaDisciplina')?.addEventListener('click', abrirModalAdicionarDisciplina);
@@ -162,25 +151,110 @@ function configurarEventos() {
     document.getElementById('buscaCurso')?.addEventListener('input', filtrarCursos);
     document.getElementById('buscaJustificativaConfig')?.addEventListener('input', filtrarJustificativasConfig);
     
-    // Observar mudanças de aba para carregar justificativas
-    const tabs = document.querySelectorAll('a[data-bs-toggle="tab"]');
-    tabs.forEach(tab => {
-        tab.addEventListener('shown.bs.tab', function(e) {
-            if (e.target.getAttribute('href') === '#justificativas') {
-                console.log('Aba de justificativas aberta, carregando...');
-                setTimeout(() => {
-                    carregarJustificativas();
-                }, 100);
-            }
-        });
+    // ========== FILTROS DE DOCENTES ==========
+    
+    // Botão Limpar Busca
+    document.getElementById('limparBuscaBtn')?.addEventListener('click', function() {
+        document.getElementById('buscaDocente').value = '';
+        buscaAtual = '';
+        atualizarTabelaDocentes();
+    });
+    
+    // Busca em tempo real
+    document.getElementById('buscaDocente')?.addEventListener('input', function() {
+        buscaAtual = this.value.trim();
+        atualizarTabelaDocentes();
+    });
+    
+    // Filtro: Todos
+    document.getElementById('filtroTodos')?.addEventListener('click', function() {
+        setFiltroAtivo('todos');
+        filtroStatusAtual = 'todos';
+        atualizarTabelaDocentes();
+    });
+    
+    // Filtro: Ativos
+    document.getElementById('filtroAtivos')?.addEventListener('click', function() {
+        setFiltroAtivo('ativos');
+        filtroStatusAtual = 'ativos';
+        atualizarTabelaDocentes();
+    });
+    
+    // Filtro: Inativos
+    document.getElementById('filtroInativos')?.addEventListener('click', function() {
+        setFiltroAtivo('inativos');
+        filtroStatusAtual = 'inativos';
+        atualizarTabelaDocentes();
+    });
+    
+    // ========== BOTÕES DO CONTROLE ADMINISTRATIVO ==========
+    
+    // Botão aplicar filtro de estatísticas
+    document.getElementById('aplicarFiltroBtn')?.addEventListener('click', aplicarFiltroEstatisticas);
+    
+    // Botão gerar relatório PDF
+    document.getElementById('gerarRelatorioPDFBtn')?.addEventListener('click', gerarRelatorioDocentes);
+    
+    // Botão limpar busca de justificativas
+    document.getElementById('limparBuscaJustificativa')?.addEventListener('click', function() {
+        document.getElementById('buscaJustificativa').value = '';
+        carregarJustificativas();
     });
     
     console.log('Eventos configurados com sucesso!');
 }
 
-// ========== FUNÇÕES DE TABELA ==========
+// Configurar observador de abas
+function configurarObservadorAbas() {
+    const tabs = document.querySelectorAll('a[data-bs-toggle="tab"]');
+    tabs.forEach(tab => {
+        tab.addEventListener('shown.bs.tab', function(e) {
+            const targetTab = e.target.getAttribute('href');
+            console.log('Aba aberta:', targetTab);
+            
+            setTimeout(() => {
+                if (targetTab === '#justificativas') {
+                    console.log('Carregando justificativas...');
+                    carregarJustificativas();
+                } else if (targetTab === '#controle') {
+                    console.log('Carregando estatísticas...');
+                    atualizarEstatisticasCompletas();
+                    // Adicione esta linha:
+                    carregarResumoFaltasPorDocente();
+                }
+            }, 100);
+        });
+    });
+}
 
-// NO app.js, ATUALIZE a função atualizarTabelaDocentes():
+// ========== FUNÇÕES DE NAVEGAÇÃO ==========
+
+// Modal Docente
+window.mostrarModalDocente = function() {
+    abrirModalDocenteAvancado();
+};
+
+// Modal Falta
+window.mostrarModalFalta = function() {
+    abrirModalFalta();
+};
+
+// Modal Configurações
+function mostrarModalConfiguracoes() {
+    // Carregar listas antes de abrir
+    carregarListaDisciplinas();
+    carregarListaCursos();
+    carregarListaJustificativasConfig();
+    
+    // Mostrar modal
+    const modalElement = document.getElementById('configModal');
+    if (modalElement) {
+        const modal = new bootstrap.Modal(modalElement);
+        modal.show();
+    }
+}
+
+// ========== FUNÇÕES DE TABELA ==========
 
 function atualizarTabelaDocentes() {
     const tbody = document.getElementById('docentesTableBody');
@@ -190,14 +264,70 @@ function atualizarTabelaDocentes() {
     
     const docentes = SistemaStorage.docentes;
     
-    docentes.forEach(docente => {
+    // Aplicar filtros
+    const docentesFiltrados = docentes.filter(docente => {
+        // Filtro por status
+        if (filtroStatusAtual === 'ativos' && !docente.ativo) return false;
+        if (filtroStatusAtual === 'inativos' && docente.ativo) return false;
+        
+        // Filtro por busca (nome)
+        if (buscaAtual) {
+            const nomeNormalizado = docente.nome.toLowerCase();
+            const buscaNormalizada = buscaAtual.toLowerCase();
+            return nomeNormalizado.includes(buscaNormalizada);
+        }
+        
+        return true;
+    });
+    
+    // Atualizar contador
+    atualizarContadorDocentes(docentesFiltrados.length, docentes.length);
+    
+    if (docentesFiltrados.length === 0) {
+        let mensagem = '';
+        if (buscaAtual) {
+            mensagem = `Nenhum docente encontrado para "${buscaAtual}"`;
+        } else if (filtroStatusAtual === 'ativos') {
+            mensagem = 'Nenhum docente ativo encontrado';
+        } else if (filtroStatusAtual === 'inativos') {
+            mensagem = 'Nenhum docente inativo encontrado';
+        } else {
+            mensagem = 'Nenhum docente cadastrado';
+        }
+        
+        tbody.innerHTML = `
+            <tr>
+                <td colspan="7" class="text-center text-muted py-4">
+                    <i class="fas fa-user-slash fa-2x mb-2"></i>
+                    <p class="mb-0">${mensagem}</p>
+                    ${!buscaAtual ? '<small>Clique em "Novo Docente" para adicionar</small>' : ''}
+                </td>
+            </tr>
+        `;
+        
+        // Atualizar selects de docentes (apenas ativos para faltas)
+        atualizarSelectsDocentes();
+        return;
+    }
+    
+    // Ordenar por nome
+    const docentesOrdenados = [...docentesFiltrados].sort((a, b) => 
+        a.nome.localeCompare(b.nome)
+    );
+    
+    docentesOrdenados.forEach(docente => {
         const tr = document.createElement('tr');
         tr.innerHTML = `
-            <td>${docente.id}</td> <!-- NOVA COLUNA: ID -->
+            <td>${docente.id}</td>
             <td>${docente.nome}</td>
-            <td>${docente.disciplinas.join(', ')}</td> <!-- Agora mostra todas as disciplinas -->
-            <td>${docente.cursos.join(', ')}</td> <!-- Agora mostra todos os cursos -->
+            <td>${docente.disciplinas.join(', ')}</td>
+            <td>${docente.cursos.join(', ')}</td>
             <td>${docente.aulas}</td>
+            <td>
+                ${docente.ativo ? 
+                    '<span class="badge bg-success"><i class="fas fa-check-circle me-1"></i> Ativo</span>' : 
+                    '<span class="badge bg-secondary"><i class="fas fa-times-circle me-1"></i> Inativo</span>'}
+            </td>
             <td>
                 <button class="btn btn-warning btn-sm me-1" onclick="editarDocente(${docente.id})">
                     <i class="fas fa-edit"></i>
@@ -214,6 +344,7 @@ function atualizarTabelaDocentes() {
     atualizarSelectsDocentes();
 }
 
+// Função para atualizar selects de docentes
 function atualizarSelectsDocentes() {
     const select = document.getElementById('docenteSelect');
     const filtro = document.getElementById('filtroDocente');
@@ -221,21 +352,36 @@ function atualizarSelectsDocentes() {
     if (select) {
         select.innerHTML = '<option value="">Selecione um docente</option>';
         SistemaStorage.docentes.forEach(docente => {
-            const option = document.createElement('option');
-            option.value = docente.id;
-            option.textContent = docente.nome;
-            select.appendChild(option);
+            // Apenas docentes ATIVOS para novas faltas
+            if (docente.ativo) {
+                const option = document.createElement('option');
+                option.value = docente.id;
+                option.textContent = docente.nome;
+                select.appendChild(option);
+            }
         });
     }
     
     if (filtro) {
         filtro.innerHTML = '<option value="">Todos os docentes</option>';
         SistemaStorage.docentes.forEach(docente => {
+            // Para filtro de faltas, mostrar todos os docentes (ativos e inativos)
             const option = document.createElement('option');
             option.value = docente.id;
             option.textContent = docente.nome;
             filtro.appendChild(option);
         });
+    }
+}
+
+// Função para atualizar contador
+function atualizarContadorDocentes(mostrando, total) {
+    const totalMostrado = document.getElementById('totalMostrado');
+    const totalGeral = document.getElementById('totalGeral');
+    
+    if (totalMostrado && totalGeral) {
+        totalMostrado.textContent = mostrando;
+        totalGeral.textContent = total;
     }
 }
 
@@ -318,6 +464,260 @@ function atualizarTabelaFaltas() {
     });
 }
 
+// ========== FUNÇÕES AUXILIARES ==========
+
+function formatarData(dataString) {
+    if (!dataString) return '';
+    const data = new Date(dataString);
+    return data.toLocaleDateString('pt-BR');
+}
+
+// Função para definir botão de filtro ativo
+function setFiltroAtivo(filtro) {
+    const btnTodos = document.getElementById('filtroTodos');
+    const btnAtivos = document.getElementById('filtroAtivos');
+    const btnInativos = document.getElementById('filtroInativos');
+    
+    // Remover classe active de todos
+    btnTodos?.classList.remove('active');
+    btnAtivos?.classList.remove('active');
+    btnInativos?.classList.remove('active');
+    
+    // Adicionar classe active ao botão correto
+    switch(filtro) {
+        case 'todos':
+            btnTodos?.classList.add('active');
+            break;
+        case 'ativos':
+            btnAtivos?.classList.add('active');
+            break;
+        case 'inativos':
+            btnInativos?.classList.add('active');
+            break;
+    }
+}
+
+// ========== FUNÇÕES DE JUSTIFICATIVAS ==========
+
+function carregarJustificativas() {
+    const lista = document.getElementById('listaJustificativas');
+    const buscaInput = document.getElementById('buscaJustificativa');
+    
+    if (!lista) {
+        console.error('Elemento #listaJustificativas não encontrado!');
+        return;
+    }
+    
+    lista.innerHTML = '';
+    
+    const justificativas = SistemaStorage.getJustificativasOrdenadas();
+    
+    if (justificativas.length === 0) {
+        lista.innerHTML = `
+            <div class="list-group-item text-center text-muted py-4">
+                <i class="fas fa-file-alt fa-2x mb-2"></i>
+                <p class="mb-0">Nenhuma justificativa cadastrada</p>
+                <small>Vá em <strong>Configurações → Justificativas</strong> para adicionar</small>
+            </div>
+        `;
+        return;
+    }
+    
+    // Filtrar por busca se houver termo
+    const termoBusca = buscaInput?.value.toLowerCase() || '';
+    const justificativasFiltradas = justificativas.filter(j => 
+        j.toLowerCase().includes(termoBusca)
+    );
+    
+    if (justificativasFiltradas.length === 0) {
+        lista.innerHTML = `
+            <div class="list-group-item text-center text-muted py-4">
+                <i class="fas fa-search fa-2x mb-2"></i>
+                <p class="mb-0">Nenhuma justificativa encontrada para "${termoBusca}"</p>
+            </div>
+        `;
+        return;
+    }
+    
+    justificativasFiltradas.forEach(justificativa => {
+        const emUso = SistemaStorage.justificativaEmUso(justificativa);
+        const quantidadeUso = SistemaStorage.faltas.filter(f => 
+            f.justificativa === justificativa
+        ).length;
+        
+        const item = document.createElement('div');
+        item.className = 'list-group-item d-flex justify-content-between align-items-center';
+        item.innerHTML = `
+            <div>
+                <i class="fas fa-file-alt text-primary me-2"></i>
+                <span class="fw-bold">${justificativa}</span>
+                <div class="small text-muted">
+                    ${quantidadeUso} ${quantidadeUso === 1 ? 'falta registrada' : 'faltas registradas'} com esta justificativa
+                </div>
+            </div>
+            <div class="badge bg-${emUso ? 'success' : 'secondary'}">
+                ${emUso ? 'Em uso' : 'Não utilizada'}
+            </div>
+        `;
+        lista.appendChild(item);
+    });
+    
+    // Configurar busca em tempo real
+    if (buscaInput) {
+        buscaInput.addEventListener('input', carregarJustificativas);
+    }
+}
+
+// ========== FUNÇÕES DE CONTROLE ADMINISTRATIVO ==========
+
+function atualizarEstatisticasCompletas() {
+    const container = document.getElementById('estatisticas');
+    if (!container) return;
+    
+    const totalDocentes = SistemaStorage.docentes.length;
+    const docentesAtivos = SistemaStorage.docentes.filter(d => d.ativo !== false).length;
+    const totalFaltas = SistemaStorage.faltas.reduce((sum, f) => sum + f.quantidadeFaltas, 0);
+    const faltasJustificadas = SistemaStorage.faltas
+        .filter(f => f.justificada)
+        .reduce((sum, f) => sum + f.quantidadeFaltas, 0);
+    
+    container.innerHTML = `
+        <div class="row">
+            <div class="col-md-6">
+                <div class="card mb-3">
+                    <div class="card-body">
+                        <h6 class="card-title">📊 Estatísticas Gerais</h6>
+                        <div class="d-flex justify-content-between mb-2">
+                            <span>Total de Docentes:</span>
+                            <strong>${totalDocentes}</strong>
+                        </div>
+                        <div class="d-flex justify-content-between mb-2">
+                            <span>Docentes Ativos:</span>
+                            <strong class="text-success">${docentesAtivos}</strong>
+                        </div>
+                        <div class="d-flex justify-content-between mb-2">
+                            <span>Docentes Inativos:</span>
+                            <strong class="text-secondary">${totalDocentes - docentesAtivos}</strong>
+                        </div>
+                        <hr>
+                        <div class="d-flex justify-content-between mb-2">
+                            <span>Total de Faltas:</span>
+                            <strong>${totalFaltas}</strong>
+                        </div>
+                        <div class="d-flex justify-content-between mb-2">
+                            <span>Faltas Justificadas:</span>
+                            <strong class="text-success">${faltasJustificadas}</strong>
+                        </div>
+                        <div class="d-flex justify-content-between">
+                            <span>Faltas Não Justificadas:</span>
+                            <strong class="text-danger">${totalFaltas - faltasJustificadas}</strong>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="col-md-6">
+                <div class="card mb-3">
+                    <div class="card-body">
+                        <h6 class="card-title">📈 Últimas Faltas Registradas</h6>
+                        ${SistemaStorage.faltas.length === 0 ? 
+                            '<p class="text-muted">Nenhuma falta registrada</p>' : 
+                            SistemaStorage.faltas
+                                .sort((a, b) => new Date(b.data) - new Date(a.data))
+                                .slice(0, 3)
+                                .map(falta => {
+                                    const docente = SistemaStorage.getDocentePorId(falta.docenteId);
+                                    return `
+                                        <div class="mb-2 p-2 border rounded">
+                                            <small class="d-block">${formatarData(falta.data)}</small>
+                                            <strong>${docente?.nome || 'Docente não encontrado'}</strong>
+                                            <span class="badge ${falta.justificada ? 'bg-success' : 'bg-danger'} float-end">
+                                                ${falta.justificada ? 'Justificada' : 'Não Justificada'}
+                                            </span>
+                                        </div>
+                                    `;
+                                }).join('')
+                        }
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+}
+
+function aplicarFiltroEstatisticas() {
+    console.log('Aplicando filtro de estatísticas...');
+    
+    const dataInicio = document.getElementById('dataInicio')?.value;
+    const dataFim = document.getElementById('dataFim')?.value;
+    
+    // Se não houver datas, usar todos os dados
+    if (!dataInicio && !dataFim) {
+        atualizarEstatisticasCompletas();
+        alert('📊 Exibindo todas as estatísticas (sem filtro de data)');
+        return;
+    }
+    
+    // Validar datas
+    if (dataInicio && dataFim && dataInicio > dataFim) {
+        alert('❌ Data de início não pode ser maior que data de fim!');
+        return;
+    }
+    
+    // Filtrar faltas por data
+    const faltasFiltradas = SistemaStorage.faltas.filter(falta => {
+        if (!falta.data) return false;
+        
+        const dataFalta = new Date(falta.data);
+        
+        if (dataInicio && dataFim) {
+            const inicio = new Date(dataInicio);
+            const fim = new Date(dataFim);
+            return dataFalta >= inicio && dataFalta <= fim;
+        } else if (dataInicio) {
+            const inicio = new Date(dataInicio);
+            return dataFalta >= inicio;
+        } else if (dataFim) {
+            const fim = new Date(dataFim);
+            return dataFalta <= fim;
+        }
+        
+        return true;
+    });
+    
+    // Calcular estatísticas filtradas
+    const totalDocentes = SistemaStorage.docentes.length;
+    const totalFaltas = faltasFiltradas.reduce((sum, f) => sum + f.quantidadeFaltas, 0);
+    const faltasJustificadas = faltasFiltradas
+        .filter(f => f.justificada)
+        .reduce((sum, f) => sum + f.quantidadeFaltas, 0);
+    
+    const container = document.getElementById('estatisticas');
+    if (container) {
+        container.innerHTML = `
+            <div class="alert alert-info">
+                <i class="fas fa-filter me-2"></i>
+                <strong>Estatísticas Filtradas:</strong>
+                ${dataInicio ? `De ${formatarData(dataInicio)}` : ''}
+                ${dataFim ? `até ${formatarData(dataFim)}` : ''}
+            </div>
+            <p><strong>Total de Docentes:</strong> ${totalDocentes}</p>
+            <p><strong>Total de Faltas (no período):</strong> ${totalFaltas}</p>
+            <p><strong>Faltas Justificadas:</strong> ${faltasJustificadas}</p>
+            <p><strong>Faltas Não Justificadas:</strong> ${totalFaltas - faltasJustificadas}</p>
+            <hr>
+            <small class="text-muted">
+                <i class="fas fa-info-circle me-1"></i>
+                ${faltasFiltradas.length} registro(s) encontrado(s)
+            </small>
+        `;
+    }
+    
+    alert('📊 Filtro aplicado às estatísticas!');
+}
+
+// ========== FUNÇÕES DE DOCENTE ==========
+
 // Função para abrir modal de docente com múltiplas disciplinas/cursos
 function abrirModalDocenteAvancado(id = null) {
     docenteEditandoId = id;
@@ -330,6 +730,12 @@ function abrirModalDocenteAvancado(id = null) {
             document.getElementById('docenteNome').value = docente.nome || '';
             document.getElementById('docenteAulas').value = docente.aulas || 20;
             
+            // Preencher checkbox de status
+            const docenteAtivoCheckbox = document.getElementById('docenteAtivo');
+            if (docenteAtivoCheckbox) {
+                docenteAtivoCheckbox.checked = docente.ativo !== false;
+            }
+            
             // Carregar disciplinas dinamicamente
             carregarDisciplinasDoDocente(docente.disciplinas || []);
             
@@ -340,6 +746,13 @@ function abrirModalDocenteAvancado(id = null) {
         // Novo docente - limpar tudo
         document.getElementById('docenteNome').value = '';
         document.getElementById('docenteAulas').value = 20;
+        
+        // Checkbox marcado por padrão para novos docentes
+        const docenteAtivoCheckbox = document.getElementById('docenteAtivo');
+        if (docenteAtivoCheckbox) {
+            docenteAtivoCheckbox.checked = true;
+        }
+        
         document.getElementById('listaDisciplinasDocente').innerHTML = '';
         document.getElementById('listaCursosDocente').innerHTML = '';
         
@@ -538,280 +951,128 @@ window.removerCursoDocente = function(index) {
     }
 };
 
-function atualizarEstatisticas() {
-    const container = document.getElementById('estatisticas');
-    if (!container) return;
-    
-    const totalDocentes = SistemaStorage.docentes.length;
-    const totalFaltas = SistemaStorage.faltas.reduce((sum, f) => sum + f.quantidadeFaltas, 0);
-    const faltasJustificadas = SistemaStorage.faltas
-        .filter(f => f.justificada)
-        .reduce((sum, f) => sum + f.quantidadeFaltas, 0);
-    
-    container.innerHTML = `
-        <p><strong>Total de Docentes:</strong> ${totalDocentes}</p>
-        <p><strong>Total de Faltas:</strong> ${totalFaltas}</p>
-        <p><strong>Faltas Justificadas:</strong> ${faltasJustificadas}</p>
-        <p><strong>Faltas Não Justificadas:</strong> ${totalFaltas - faltasJustificadas}</p>
-    `;
-}
-
-// ========== FUNÇÕES AUXILIARES ==========
-
-function formatarData(dataString) {
-    if (!dataString) return '';
-    const data = new Date(dataString);
-    return data.toLocaleDateString('pt-BR');
-}
-
-// ========== FUNÇÕES GLOBAIS ==========
-
-// ========== FUNÇÕES DE DOCENTE ==========
-
-// Modal Docente
-window.mostrarModalDocente = function() {
-    abrirModalDocenteAvancado();
-};
-
-function carregarSelectsModalDocente() {
-    // Carregar disciplinas no select do modal de docente
-    const disciplinaSelect = document.getElementById('docenteDisciplinaSelect');
-    if (disciplinaSelect) {
-        const selectedValue = disciplinaSelect.value;
-        disciplinaSelect.innerHTML = '<option value="">Selecione uma disciplina</option>';
-        
-        // Adicionar disciplinas do SistemaStorage
-        SistemaStorage.getDisciplinasOrdenadas().forEach(disciplina => {
-            const option = document.createElement('option');
-            option.value = disciplina;
-            option.textContent = disciplina;
-            disciplinaSelect.appendChild(option);
-        });
-        
-        // Adicionar opção de nova disciplina
-        const novaOption = document.createElement('option');
-        novaOption.value = 'nova_disciplina';
-        novaOption.textContent = '+ Nova Disciplina';
-        disciplinaSelect.appendChild(novaOption);
-        
-        // Restaurar seleção se existir
-        if (selectedValue && SistemaStorage.disciplinas.includes(selectedValue)) {
-            disciplinaSelect.value = selectedValue;
-        }
-    }
-    
-    // Carregar cursos no select do modal de docente
-    const cursoSelect = document.getElementById('docenteCursoSelect');
-    if (cursoSelect) {
-        const selectedValue = cursoSelect.value;
-        cursoSelect.innerHTML = '<option value="">Selecione um curso</option>';
-        
-        // Adicionar cursos do SistemaStorage
-        SistemaStorage.getCursosOrdenados().forEach(curso => {
-            const option = document.createElement('option');
-            option.value = curso;
-            option.textContent = curso;
-            cursoSelect.appendChild(option);
-        });
-        
-        // Adicionar opção de novo curso
-        const novaOption = document.createElement('option');
-        novaOption.value = 'novo_curso';
-        novaOption.textContent = '+ Novo Curso';
-        cursoSelect.appendChild(novaOption);
-        
-        // Restaurar seleção se existir
-        if (selectedValue && SistemaStorage.cursos.includes(selectedValue)) {
-            cursoSelect.value = selectedValue;
-        }
-    }
-}
-
 // Função para salvar docente
-
 function salvarDocente() {
     console.log('Executando salvarDocente()...', { editando: docenteEditandoId });
     
     const nome = document.getElementById('docenteNome')?.value.trim();
     const aulas = parseInt(document.getElementById('docenteAulas')?.value) || 20;
-    const ativo = document.getElementById('docenteAtivo')?.checked || true;
+    const ativo = document.getElementById('docenteAtivo')?.checked;
     
-    // Coletar disciplinas
-    const disciplinasItems = document.querySelectorAll('#listaDisciplinasDocente .disciplina-item');
+    // VALIDAÇÃO BÁSICA
+    if (!nome) {
+        alert('❌ Digite o nome do docente!');
+        return;
+    }
+    
+    // COLETAR DISCIPLINAS DOS CAMPOS DINÂMICOS
     const disciplinas = [];
-    
-    disciplinasItems.forEach(item => {
+    const disciplinaItens = document.querySelectorAll('#listaDisciplinasDocente .disciplina-item');
+    disciplinaItens.forEach(item => {
         const select = item.querySelector('.disciplina-select');
         const input = item.querySelector('.nova-disciplina-input');
         
-        if (select.value === 'nova_disciplina' && input) {
-            const novaDisciplina = input.value.trim();
-            if (novaDisciplina) {
-                disciplinas.push(novaDisciplina);
-                // Adicionar ao sistema global
-                SistemaStorage.adicionarDisciplina(novaDisciplina);
-            }
-        } else if (select.value && select.value !== 'nova_disciplina') {
+        if (select && select.value === 'nova_disciplina' && input && input.value.trim()) {
+            // Nova disciplina digitada
+            disciplinas.push(input.value.trim());
+        } else if (select && select.value && select.value !== 'nova_disciplina') {
+            // Disciplina selecionada da lista
             disciplinas.push(select.value);
         }
     });
     
-    // Coletar cursos
-    const cursosItems = document.querySelectorAll('#listaCursosDocente .curso-item');
-    const cursos = [];
+    // VALIDAÇÃO DE DISCIPLINAS
+    if (disciplinas.length === 0) {
+        alert('❌ O docente deve ter pelo menos uma disciplina!');
+        return;
+    }
     
-    cursosItems.forEach(item => {
+    // COLETAR CURSOS DOS CAMPOS DINÂMICOS
+    const cursos = [];
+    const cursoItens = document.querySelectorAll('#listaCursosDocente .curso-item');
+    cursoItens.forEach(item => {
         const select = item.querySelector('.curso-select');
         const input = item.querySelector('.novo-curso-input');
         
-        if (select.value === 'novo_curso' && input) {
-            const novoCurso = input.value.trim();
-            if (novoCurso) {
-                cursos.push(novoCurso);
-                // Adicionar ao sistema global
-                SistemaStorage.adicionarCurso(novoCurso);
-            }
-        } else if (select.value && select.value !== 'novo_curso') {
+        if (select && select.value === 'novo_curso' && input && input.value.trim()) {
+            // Novo curso digitado
+            cursos.push(input.value.trim());
+        } else if (select && select.value && select.value !== 'novo_curso') {
+            // Curso selecionado da lista
             cursos.push(select.value);
         }
     });
     
-    // Validações
-    if (!nome) {
-        alert('Digite o nome do docente!');
-        return;
-    }
-    
-    if (disciplinas.length === 0) {
-        alert('Adicione pelo menos uma disciplina!');
-        return;
-    }
-    
+    // VALIDAÇÃO DE CURSOS
     if (cursos.length === 0) {
-        alert('Adicione pelo menos um curso!');
+        alert('❌ O docente deve ter pelo menos um curso!');
         return;
     }
     
-    if (aulas <= 0) {
-        alert('A quantidade de aulas deve ser maior que zero!');
-        return;
-    }
-    
-    // Criar objeto docente
+    // Criar objeto docente COM CAMPO ATIVO
     const dadosDocente = {
         nome: nome,
         disciplinas: disciplinas,
         cursos: cursos,
         aulas: aulas,
-        ativo: ativo
+        ativo: ativo !== false // true se marcado, false se desmarcado
     };
     
-    let sucesso = false;
-    let mensagem = '';
+    console.log('Dados do docente a salvar:', dadosDocente);
+    
+    // SALVAR OU ATUALIZAR
+    let resultado = false;
     
     if (docenteEditandoId) {
-        // Modo edição
-        console.log('Atualizando docente ID:', docenteEditandoId);
-        sucesso = SistemaStorage.atualizarDocenteCompleto(docenteEditandoId, dadosDocente);
-        mensagem = sucesso ? `✅ Docente "${nome}" atualizado com sucesso!` : '❌ Erro ao atualizar docente!';
+        // EDITAR DOCENTE EXISTENTE
+        resultado = SistemaStorage.atualizarDocente(docenteEditandoId, dadosDocente);
+        if (resultado) {
+            alert(`✅ Docente "${nome}" atualizado com sucesso!`);
+        }
     } else {
-        // Modo criação
-        console.log('Criando novo docente...');
+        // NOVO DOCENTE
         const id = SistemaStorage.adicionarDocente(dadosDocente);
-        sucesso = !!id;
-        mensagem = sucesso ? `✅ Docente "${nome}" cadastrado com ID ${id}!` : '❌ Erro ao salvar docente!';
+        resultado = !!id;
+        if (resultado) {
+            alert(`✅ Docente "${nome}" cadastrado com sucesso!`);
+        }
     }
     
-    if (sucesso) {
+    if (resultado) {
         // Fechar modal
         const modal = bootstrap.Modal.getInstance(document.getElementById('addDocenteModal'));
         if (modal) modal.hide();
         
-        // Resetar variável de edição
-        docenteEditandoId = null;
-        
         // Atualizar interface
         atualizarTabelaDocentes();
-        atualizarSelectsDocentes(); // Para filtros de falta
+        atualizarEstatisticasCompletas();
         
-        alert(mensagem);
+        // Adicionar disciplinas/cursos novos ao sistema global
+        disciplinas.forEach(disciplina => {
+            if (!SistemaStorage.disciplinas.includes(disciplina)) {
+                SistemaStorage.adicionarDisciplina(disciplina);
+            }
+        });
+        
+        cursos.forEach(curso => {
+            if (!SistemaStorage.cursos.includes(curso)) {
+                SistemaStorage.adicionarCurso(curso);
+            }
+        });
+        
     } else {
-        alert(mensagem);
+        alert('❌ Erro ao salvar docente!');
     }
 }
-
-// Funções para selects dinâmicos
-window.toggleNovaDisciplina = function() {
-    const select = document.getElementById('docenteDisciplinaSelect');
-    const input = document.getElementById('novaDisciplinaInput');
-    if (select && input) {
-        if (select.value === 'nova_disciplina') {
-            input.classList.remove('hidden');
-            setTimeout(() => input.focus(), 100);
-        } else {
-            input.classList.add('hidden');
-            input.value = '';
-        }
-    }
-};
-
-window.toggleNovoCurso = function() {
-    const select = document.getElementById('docenteCursoSelect');
-    const input = document.getElementById('novoCursoInput');
-    if (select && input) {
-        if (select.value === 'novo_curso') {
-            input.classList.remove('hidden');
-            setTimeout(() => input.focus(), 100);
-        } else {
-            input.classList.add('hidden');
-            input.value = '';
-        }
-    }
-};
-
-// Editar/Excluir Docente
-window.editarDocente = function(id) {
-    const docente = SistemaStorage.getDocentePorId(id);
-    if (docente) {
-        abrirModalDocenteAvancado(id);
-    } else {
-        alert('❌ Docente não encontrado!');
-    }
-};
-
-function docenteTemFaltas(id) {
-    return SistemaStorage.faltas.some(f => f.docenteId === id);
-}
-
-window.excluirDocente = function(id) {
-    const docente = SistemaStorage.getDocentePorId(id);
-    if (!docente) return;
-    
-    // Verificar se docente tem faltas registradas
-    if (docenteTemFaltas(id)) {
-        alert(`❌ Não é possível excluir o docente "${docente.nome}"!\n\nExistem faltas registradas para este docente. Primeiro exclua as faltas associadas.`);
-        return;
-    }
-    
-    if (confirm(`Tem certeza que deseja excluir o docente "${docente.nome}"?`)) {
-        if (SistemaStorage.removerDocente(id)) {
-            atualizarTabelaDocentes();
-            atualizarTabelaFaltas(); // Atualizar também faltas
-            alert('✅ Docente excluído com sucesso!');
-        } else {
-            alert('❌ Erro ao excluir docente.');
-        }
-    }
-};
 
 // ========== FUNÇÕES DE FALTA ==========
 
-// Modal Falta
-window.mostrarModalFalta = function() {
-    abrirModalFalta();
-};
-
 function abrirModalFalta() {
+  faltaEditandoId = null;
+    
+    // Resetar título
+    document.getElementById('faltaModalTitle').textContent = 'Registrar Falta';
+
     // Resetar formulário
     const form = document.getElementById('faltaForm');
     if (form) {
@@ -879,25 +1140,9 @@ function carregarSelectsModalFalta() {
     }
 }
 
-window.toggleCampoJustificativa = function() {
-    const faltaJustificada = document.getElementById('faltaJustificada');
-    const justificativaContainer = document.getElementById('justificativaContainer');
-    
-    if (faltaJustificada && justificativaContainer) {
-        if (faltaJustificada.value === 'sim') {
-            justificativaContainer.classList.remove('hidden');
-        } else {
-            justificativaContainer.classList.add('hidden');
-            // Limpar seleção
-            const justificativaSelect = document.getElementById('justificativaSelect');
-            if (justificativaSelect) justificativaSelect.value = '';
-        }
-    }
-};
-
 // Função para salvar falta
 function salvarFalta() {
-    console.log('Executando salvarFalta()...');
+    console.log('Executando salvarFalta()...', { editando: faltaEditandoId });
     
     const docenteId = parseInt(document.getElementById('docenteSelect')?.value) || 0;
     const disciplina = document.getElementById('disciplinaSelect')?.value;
@@ -946,7 +1191,7 @@ function salvarFalta() {
     }
     
     // Criar objeto falta
-    const novaFalta = {
+    const dadosFalta = {
         docenteId: docenteId,
         disciplina: disciplina,
         curso: curso,
@@ -959,113 +1204,49 @@ function salvarFalta() {
         horarioFim: horarioFim
     };
     
-    console.log('Nova falta a ser salva:', novaFalta);
+    console.log('Dados a serem salvos:', dadosFalta);
     
-    // Salvar usando SistemaStorage
-    const id = SistemaStorage.adicionarFalta(novaFalta);
+    let resultado = false;
+    let mensagem = '';
     
-    if (id) {
+    if (faltaEditandoId) {
+        // EDITAR FALTA EXISTENTE
+        resultado = SistemaStorage.atualizarFalta(faltaEditandoId, dadosFalta);
+        mensagem = resultado ? 
+            '✅ Falta atualizada com sucesso!' : 
+            '❌ Erro ao atualizar falta!';
+    } else {
+        // NOVA FALTA
+        const id = SistemaStorage.adicionarFalta(dadosFalta);
+        resultado = !!id;
+        mensagem = resultado ? 
+            '✅ Falta registrada com sucesso!' : 
+            '❌ Erro ao salvar falta!';
+    }
+    
+    if (resultado) {
         // Fechar modal
         const modal = bootstrap.Modal.getInstance(document.getElementById('addFaltaModal'));
         if (modal) modal.hide();
         
+        // Resetar ID de edição
+        faltaEditandoId = null;
+        
+        // Resetar título do modal
+        document.getElementById('faltaModalTitle').textContent = 'Registrar Falta';
+        
         // Atualizar interface
         atualizarTabelaFaltas();
-        atualizarEstatisticas();
+        atualizarEstatisticasCompletas();
         atualizarFiltroAnos();
         
-        alert('✅ Falta registrada com sucesso!');
+        alert(mensagem);
     } else {
-        alert('❌ Erro ao salvar falta!');
-    }
-}
-
-window.editarFalta = function(id) {
-    const falta = SistemaStorage.faltas.find(f => f.id === id);
-    if (falta) {
-        alert(`✏️ Editar falta ID: ${falta.id}\n\nDocente ID: ${falta.docenteId}\nDisciplina: ${falta.disciplina}\nCurso: ${falta.curso}\nData: ${falta.data}\n\nFuncionalidade em desenvolvimento...`);
-    }
-};
-
-window.excluirFalta = function(id) {
-    if (confirm('Tem certeza que deseja excluir este registro de falta?')) {
-        if (SistemaStorage.removerFalta(id)) {
-            atualizarTabelaFaltas();
-            atualizarEstatisticas();
-            atualizarFiltroAnos();
-            alert('✅ Falta excluída com sucesso!');
-        } else {
-            alert('❌ Erro ao excluir falta.');
-        }
-    }
-};
-
-// ========== FUNÇÕES DE JUSTIFICATIVAS ==========
-
-// Função para carregar justificativas (na aba de justificativas)
-function carregarJustificativas() {
-    const lista = document.getElementById('listaJustificativas');
-    if (!lista) return;
-    
-    lista.innerHTML = '';
-    
-    const justificativas = SistemaStorage.getJustificativasOrdenadas();
-    
-    if (justificativas.length === 0) {
-        lista.innerHTML = `
-            <div class="list-group-item text-center text-muted">
-                <i class="fas fa-file-alt fa-2x mb-2"></i>
-                <p class="mb-0">Nenhuma justificativa cadastrada</p>
-                <small>Clique em "Nova Justificativa" para adicionar</small>
-            </div>
-        `;
-        return;
-    }
-    
-    justificativas.forEach(justificativa => {
-        const item = document.createElement('div');
-        item.className = 'list-group-item d-flex justify-content-between align-items-center';
-        item.innerHTML = `
-            <span><i class="fas fa-file-alt text-muted me-2"></i>${justificativa}</span>
-        `;
-        lista.appendChild(item);
-    });
-    
-    // Configurar busca após carregar itens
-    configurarBuscaJustificativas();
-}
-
-// Busca de justificativas
-function configurarBuscaJustificativas() {
-    const buscaInput = document.getElementById('buscaJustificativa');
-    if (buscaInput) {
-        buscaInput.addEventListener('input', function() {
-            const termo = this.value.toLowerCase();
-            const itens = document.querySelectorAll('#listaJustificativas .list-group-item');
-            
-            itens.forEach(item => {
-                const texto = item.querySelector('span')?.textContent.toLowerCase() || '';
-                item.style.display = texto.includes(termo) ? 'flex' : 'none';
-            });
-        });
+        alert(mensagem);
     }
 }
 
 // ========== FUNÇÕES DE CONFIGURAÇÕES ==========
-
-window.showConfigModal = function() {
-    // Carregar listas antes de abrir
-    carregarListaDisciplinas();
-    carregarListaCursos();
-    carregarListaJustificativasConfig();
-    
-    // Mostrar modal
-    const modalElement = document.getElementById('configModal');
-    if (modalElement) {
-        const modal = new bootstrap.Modal(modalElement);
-        modal.show();
-    }
-};
 
 // Disciplinas
 function carregarListaDisciplinas() {
@@ -1326,6 +1507,41 @@ function salvarCurso() {
     } else {
         alert(`❌ O curso "${nome}" já existe!`);
     }
+}
+
+function carregarResumoFaltasPorDocente() {
+    const tbody = document.getElementById('tabelaResumoFaltas');
+    if (!tbody) return;
+    
+    tbody.innerHTML = '';
+    
+    SistemaStorage.docentes.forEach(docente => {
+        const faltasDocente = SistemaStorage.faltas.filter(f => f.docenteId === docente.id);
+        const totalFaltas = faltasDocente.reduce((sum, f) => sum + f.quantidadeFaltas, 0);
+        const justificadas = faltasDocente
+            .filter(f => f.justificada)
+            .reduce((sum, f) => sum + f.quantidadeFaltas, 0);
+        const naoJustificadas = totalFaltas - justificadas;
+        const percentual = totalFaltas > 0 ? Math.round((justificadas / totalFaltas) * 100) : 0;
+        
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+            <td>${docente.nome}</td>
+            <td>${totalFaltas}</td>
+            <td class="text-success">${justificadas}</td>
+            <td class="text-danger">${naoJustificadas}</td>
+            <td>
+                <div class="progress" style="height: 20px;">
+                    <div class="progress-bar bg-success" role="progressbar" 
+                         style="width: ${percentual}%" aria-valuenow="${percentual}" 
+                         aria-valuemin="0" aria-valuemax="100">
+                        ${percentual}%
+                    </div>
+                </div>
+            </td>
+        `;
+        tbody.appendChild(tr);
+    });
 }
 
 function atualizarSelectsCursos() {
@@ -1640,22 +1856,269 @@ function atualizarFiltroAnos() {
     }
 }
 
-// ========== OUTRAS FUNÇÕES GLOBAIS ==========
+// ========== FUNÇÕES GLOBAIS ==========
 
-window.AuthService = {
-    logout: function() {
-        SistemaStorage.logout();
-        window.location.href = 'login.html';
+window.editarDocente = function(id) {
+    const docente = SistemaStorage.getDocentePorId(id);
+    if (docente) {
+        abrirModalDocenteAvancado(id);
+    } else {
+        alert('❌ Docente não encontrado!');
     }
 };
 
-window.aplicarFiltroEstatisticas = function() {
-    atualizarEstatisticas();
-    alert('📊 Filtro aplicado às estatísticas!');
+window.excluirDocente = function(id) {
+    const docente = SistemaStorage.getDocentePorId(id);
+    if (!docente) return;
+    
+    // Verificar se docente tem faltas registradas
+    if (docenteTemFaltas(id)) {
+        alert(`❌ Não é possível excluir o docente "${docente.nome}"!\n\nExistem faltas registradas para este docente. Primeiro exclua as faltas associadas.`);
+        return;
+    }
+    
+    if (confirm(`Tem certeza que deseja excluir o docente "${docente.nome}"?`)) {
+        if (SistemaStorage.removerDocente(id)) {
+            atualizarTabelaDocentes();
+            atualizarTabelaFaltas();
+            alert('✅ Docente excluído com sucesso!');
+        } else {
+            alert('❌ Erro ao excluir docente.');
+        }
+    }
 };
 
-window.gerarRelatorioDocentes = function() {
-    alert('📈 Relatório PDF - Em desenvolvimento');
+window.editarFalta = function(id) {
+    console.log('Editando falta ID:', id);
+    
+    const falta = SistemaStorage.faltas.find(f => f.id === id);
+    if (!falta) {
+        alert('❌ Falta não encontrada!');
+        return;
+    }
+    
+    faltaEditandoId = id;
+    
+    // Preencher formulário com dados da falta
+    document.getElementById('docenteSelect').value = falta.docenteId;
+    document.getElementById('disciplinaSelect').value = falta.disciplina;
+    document.getElementById('cursoSelect').value = falta.curso;
+    document.getElementById('quantidadeFaltas').value = falta.quantidadeFaltas;
+    document.getElementById('faltaJustificada').value = falta.justificada ? 'sim' : 'nao';
+    document.getElementById('faltaData').value = falta.data;
+    document.getElementById('faltaHorarioInicio').value = falta.horarioInicio;
+    document.getElementById('faltaHorarioFim').value = falta.horarioFim;
+    document.getElementById('faltaObservacoes').value = falta.observacoes || '';
+    
+    // Configurar justificativa se necessário
+    if (falta.justificada && falta.justificativa) {
+        setTimeout(() => {
+            document.getElementById('justificativaSelect').value = falta.justificativa;
+            toggleCampoJustificativa(); // Atualizar visibilidade
+        }, 100);
+    } else {
+        toggleCampoJustificativa();
+    }
+    
+    // Atualizar título do modal
+    const docente = SistemaStorage.getDocentePorId(falta.docenteId);
+    document.getElementById('faltaModalTitle').textContent = `Editar Falta - ${docente?.nome || 'Docente'}`;
+    
+    // Carregar selects (caso não estejam carregados)
+    carregarSelectsModalFalta();
+    
+    // Mostrar modal
+    const modalElement = document.getElementById('addFaltaModal');
+    if (modalElement) {
+        const modal = new bootstrap.Modal(modalElement);
+        modal.show();
+    }
 };
 
-console.log('Sistema de Configurações carregado!');
+window.excluirFalta = function(id) {
+    if (confirm('Tem certeza que deseja excluir este registro de falta?')) {
+        if (SistemaStorage.removerFalta(id)) {
+            atualizarTabelaFaltas();
+            atualizarEstatisticasCompletas();
+            atualizarFiltroAnos();
+            alert('✅ Falta excluída com sucesso!');
+        } else {
+            alert('❌ Erro ao excluir falta.');
+        }
+    }
+};
+
+window.toggleCampoJustificativa = function() {
+    const faltaJustificada = document.getElementById('faltaJustificada');
+    const justificativaContainer = document.getElementById('justificativaContainer');
+    
+    if (faltaJustificada && justificativaContainer) {
+        if (faltaJustificada.value === 'sim') {
+            justificativaContainer.classList.remove('hidden');
+        } else {
+            justificativaContainer.classList.add('hidden');
+            const justificativaSelect = document.getElementById('justificativaSelect');
+            if (justificativaSelect) justificativaSelect.value = '';
+        }
+    }
+};
+
+// Função auxiliar para verificar se docente tem faltas
+function docenteTemFaltas(id) {
+    return SistemaStorage.faltas.some(f => f.docenteId === id);
+}
+
+// ========== FUNÇÕES configuração ==========
+
+window.showConfigModal = function() {
+    mostrarModalConfiguracoes();
+};
+
+// Função para mostrar configurações
+function mostrarModalConfiguracoes() {
+    console.log('Abrindo modal de configurações...');
+    
+    // Carregar listas antes de abrir
+    carregarListaDisciplinas();
+    carregarListaCursos();
+    carregarListaJustificativasConfig();
+    
+    // Mostrar modal
+    const modalElement = document.getElementById('configModal');
+    if (modalElement) {
+        const modal = new bootstrap.Modal(modalElement);
+        modal.show();
+    } else {
+        console.error('Modal de configurações não encontrado!');
+        alert('Erro ao abrir configurações. Recarregue a página.');
+    }
+}
+
+// Função para carregar justificativas na aba de configurações
+function carregarListaJustificativasConfig() {
+    const lista = document.getElementById('listaJustificativasConfig');
+    if (!lista) {
+        console.error('Elemento #listaJustificativasConfig não encontrado!');
+        return;
+    }
+    
+    lista.innerHTML = '';
+    
+    const justificativas = SistemaStorage.getJustificativasOrdenadas();
+    
+    if (justificativas.length === 0) {
+        lista.innerHTML = `
+            <div class="list-group-item text-center text-muted py-4">
+                <i class="fas fa-file-alt fa-2x mb-2"></i>
+                <p class="mb-0">Nenhuma justificativa cadastrada</p>
+            </div>
+        `;
+        return;
+    }
+    
+    justificativas.forEach(justificativa => {
+        const emUso = SistemaStorage.justificativaEmUso(justificativa);
+        const item = document.createElement('div');
+        item.className = 'list-group-item d-flex justify-content-between align-items-center';
+        item.innerHTML = `
+            <span>${justificativa}</span>
+            <div>
+                <button class="btn btn-warning btn-sm me-1" onclick="editarJustificativaConfig('${justificativa.replace(/'/g, "\\'")}')">
+                    <i class="fas fa-edit"></i>
+                </button>
+                <button class="btn btn-danger btn-sm" onclick="excluirJustificativaConfig('${justificativa.replace(/'/g, "\\'")}')"
+                        ${emUso ? 'disabled title="Esta justificativa está em uso"' : ''}>
+                    <i class="fas fa-trash"></i>
+                </button>
+            </div>
+        `;
+        lista.appendChild(item);
+    });
+}
+
+// ========== FUNÇÕES DO RELATÓRIO ==========
+
+function gerarRelatorioDocentes() {
+    console.log('Gerando relatório de docentes...');
+    
+    // Coletar dados para o relatório
+    const dataAtual = new Date().toLocaleDateString('pt-BR');
+    const totalDocentes = SistemaStorage.docentes.length;
+    const docentesAtivos = SistemaStorage.docentes.filter(d => d.ativo !== false).length;
+    const docentesInativos = totalDocentes - docentesAtivos;
+    
+    const totalFaltas = SistemaStorage.faltas.reduce((sum, f) => sum + f.quantidadeFaltas, 0);
+    const faltasJustificadas = SistemaStorage.faltas
+        .filter(f => f.justificada)
+        .reduce((sum, f) => sum + f.quantidadeFaltas, 0);
+    
+    // Criar conteúdo do relatório
+    let relatorio = `
+        RELATÓRIO DE DOCENTES - SISTEMA DE CONTROLE DE FALTAS
+        =====================================================
+        Data do Relatório: ${dataAtual}
+        
+        RESUMO GERAL:
+        -------------
+        • Total de Docentes: ${totalDocentes}
+        • Docentes Ativos: ${docentesAtivos}
+        • Docentes Inativos: ${docentesInativos}
+        • Total de Faltas Registradas: ${totalFaltas}
+        • Faltas Justificadas: ${faltasJustificadas}
+        • Faltas Não Justificadas: ${totalFaltas - faltasJustificadas}
+        
+        LISTA DE DOCENTES:
+        ------------------
+    `;
+    
+    SistemaStorage.docentes.forEach((docente, index) => {
+        const faltasDocente = SistemaStorage.faltas
+            .filter(f => f.docenteId === docente.id)
+            .reduce((sum, f) => sum + f.quantidadeFaltas, 0);
+        
+        relatorio += `
+        ${index + 1}. ${docente.nome}
+           - Status: ${docente.ativo !== false ? 'ATIVO' : 'INATIVO'}
+           - Disciplinas: ${docente.disciplinas.join(', ')}
+           - Cursos: ${docente.cursos.join(', ')}
+           - Aulas/Semana: ${docente.aulas}
+           - Total de Faltas: ${faltasDocente}
+        `;
+    });
+    
+    relatorio += `
+        =====================================================
+        Relatório gerado automaticamente pelo sistema.
+    `;
+    
+    // Criar um popup com o relatório
+    const janelaRelatorio = window.open('', '_blank');
+    janelaRelatorio.document.write(`
+        <!DOCTYPE html>
+        <html lang="pt-BR">
+        <head>
+            <meta charset="UTF-8">
+            <title>Relatório de Docentes</title>
+            <style>
+                body { font-family: Arial, sans-serif; margin: 40px; }
+                h1 { color: #2c3e50; border-bottom: 2px solid #3498db; padding-bottom: 10px; }
+                pre { background-color: #f8f9fa; padding: 20px; border-radius: 5px; border: 1px solid #dee2e6; white-space: pre-wrap; }
+                .btn-print { padding: 10px 20px; background-color: #3498db; color: white; border: none; border-radius: 5px; cursor: pointer; margin: 5px; }
+                .btn-print:hover { background-color: #2980b9; }
+            </style>
+        </head>
+        <body>
+            <h1>📊 Relatório de Docentes</h1>
+            <pre>${relatorio}</pre>
+            <button class="btn-print" onclick="window.print()">🖨️ Imprimir Relatório</button>
+            <button class="btn-print" onclick="window.close()" style="background-color: #95a5a6;">✖️ Fechar</button>
+        </body>
+        </html>
+    `);
+    
+    console.log('Relatório gerado com sucesso!');
+    alert('📄 Relatório gerado em nova janela!');
+}
+
+// ========== INICIALIZAÇÃO FINAL ==========
+console.log('Sistema de Controle de Faltas carregado!');

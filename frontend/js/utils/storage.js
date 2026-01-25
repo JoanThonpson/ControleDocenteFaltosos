@@ -39,208 +39,81 @@ const SistemaStorage = {
     },
     
     // ========== DADOS PADRÃO ==========
-    // NO storage.js, ATUALIZE a função criarDadosPadrao():
-
-criarDadosPadrao: function() {
-    console.log('Criando dados padrão...');
+    criarDadosPadrao: function() {
+        console.log('Criando dados padrão...');
+        
+        // Disciplinas padrão
+        this.disciplinas = [
+            "Matemática",
+            "Português", 
+            "História",
+            "Geografia",
+            "Ciências",
+            "Inglês"
+        ];
+        
+        // Cursos padrão
+        this.cursos = [
+            "Ensino Fundamental",
+            "Ensino Médio",
+            "Educação Infantil"
+        ];
+        
+        // Justificativas padrão
+        this.justificativas = [
+            "Consulta médica",
+            "Problemas de saúde",
+            "Assuntos particulares",
+            "Atestado médico",
+            "Licença saúde"
+        ];
+        
+        // Docentes padrão (com dados reais que você tinha)
+        this.docentes = [
+            { 
+                id: 1, 
+                nome: "Emerson Israel Mendes", 
+                disciplinas: ["Matemática"], 
+                cursos: ["Ensino Médio"], 
+                aulas: 13.5 
+            },
+            { 
+                id: 2, 
+                nome: "Ulrias Fagner Santos Nascimento", 
+                disciplinas: ["Português"], 
+                cursos: ["Ensino Médio"], 
+                aulas: 162 
+            },
+            { 
+                id: 3, 
+                nome: "Laura Lucia Da Silva Amorim", 
+                disciplinas: ["História"], 
+                cursos: ["Ensino Fundamental"], 
+                aulas: 90 
+            }
+        ];
+        
+        // Faltas padrão
+        this.faltas = [
+            { 
+                id: 1, 
+                docenteId: 1, 
+                disciplina: "Matemática", 
+                curso: "Ensino Médio", 
+                quantidadeFaltas: 1,
+                justificada: true,
+                justificativa: "Consulta médica",
+                observacoes: "Apresentou atestado médico",
+                data: "2024-01-15", 
+                horarioInicio: "08:00", 
+                horarioFim: "09:30"
+            }
+        ];
+        
+        // Salvar tudo
+        this.salvarTodos();
+    },
     
-    // Disciplinas padrão (mantido igual)
-    this.disciplinas = [
-        "Matemática",
-        "Português", 
-        "História",
-        "Geografia",
-        "Ciências",
-        "Inglês"
-    ];
-    
-    // Cursos padrão (mantido igual)
-    this.cursos = [
-        "Ensino Fundamental",
-        "Ensino Médio",
-        "Educação Infantil"
-    ];
-    
-    // Justificativas padrão (mantido igual)
-    this.justificativas = [
-        "Consulta médica",
-        "Problemas de saúde",
-        "Assuntos particulares",
-        "Atestado médico",
-        "Licença saúde"
-    ];
-    
-    // DOCENTES ATUALIZADOS - AGORA COM ARRAYS
-    this.docentes = [
-        { 
-            id: 1, 
-            nome: "Emerson Israel Mendes", 
-            disciplinas: ["Matemática", "Física"], // Array de disciplinas
-            cursos: ["Ensino Médio"], 
-            aulas: 13.5,
-            ativo: true
-        },
-        { 
-            id: 2, 
-            nome: "Ulrias Fagner Santos Nascimento", 
-            disciplinas: ["Português", "Literatura"], // Array de disciplinas
-            cursos: ["Ensino Médio", "Ensino Fundamental"], // Array de cursos
-            aulas: 162,
-            ativo: true
-        },
-        { 
-            id: 3, 
-            nome: "Laura Lucia Da Silva Amorim", 
-            disciplinas: ["História", "Sociologia"], 
-            cursos: ["Ensino Fundamental"], 
-            aulas: 90,
-            ativo: true
-        }
-    ];
-    
-    // Faltas padrão (mantido igual)
-    this.faltas = [
-        { 
-            id: 1, 
-            docenteId: 1, 
-            disciplina: "Matemática", 
-            curso: "Ensino Médio", 
-            quantidadeFaltas: 1,
-            justificada: true,
-            justificativa: "Consulta médica",
-            observacoes: "Apresentou atestado médico",
-            data: "2024-01-15", 
-            horarioInicio: "08:00", 
-            horarioFim: "09:30"
-        }
-    ];
-    
-    // Salvar tudo
-    this.salvarTodos();
-},
-
-// Obter disciplinas específicas de um docente
-getDisciplinasPorDocente: function(docenteId) {
-    const docente = this.getDocentePorId(docenteId);
-    return docente ? docente.disciplinas : [];
-},
-
-// Obter cursos específicos de um docente
-getCursosPorDocente: function(docenteId) {
-    const docente = this.getDocentePorId(docenteId);
-    return docente ? docente.cursos : [];
-},
-
-// Adicionar disciplina a um docente existente
-adicionarDisciplinaAoDocente: function(docenteId, disciplina) {
-    const docente = this.getDocentePorId(docenteId);
-    if (!docente) return false;
-    
-    const disciplinaNormalizada = disciplina.trim();
-    
-    // Verificar se disciplina já existe para este docente
-    if (docente.disciplinas.some(d => d.toLowerCase() === disciplinaNormalizada.toLowerCase())) {
-        console.log(`Disciplina "${disciplina}" já existe para este docente`);
-        return false;
-    }
-    
-    // Adicionar disciplina ao docente
-    docente.disciplinas.push(disciplinaNormalizada);
-    docente.disciplinas.sort();
-    
-    // Adicionar ao sistema global se não existir
-    this.adicionarDisciplina(disciplinaNormalizada);
-    
-    this.salvar('docentes', this.docentes);
-    return true;
-},
-
-// Adicionar curso a um docente existente
-adicionarCursoAoDocente: function(docenteId, curso) {
-    const docente = this.getDocentePorId(docenteId);
-    if (!docente) return false;
-    
-    const cursoNormalizado = curso.trim();
-    
-    // Verificar se curso já existe para este docente
-    if (docente.cursos.some(c => c.toLowerCase() === cursoNormalizado.toLowerCase())) {
-        console.log(`Curso "${curso}" já existe para este docente`);
-        return false;
-    }
-    
-    // Adicionar curso ao docente
-    docente.cursos.push(cursoNormalizado);
-    docente.cursos.sort();
-    
-    // Adicionar ao sistema global se não existir
-    this.adicionarCurso(cursoNormalizado);
-    
-    this.salvar('docentes', this.docentes);
-    return true;
-},
-
-// Remover disciplina de um docente
-removerDisciplinaDoDocente: function(docenteId, disciplina) {
-    const docente = this.getDocentePorId(docenteId);
-    if (!docente) return false;
-    
-    const index = docente.disciplinas.indexOf(disciplina);
-    if (index === -1) return false;
-    
-    docente.disciplinas.splice(index, 1);
-    this.salvar('docentes', this.docentes);
-    return true;
-},
-
-// Remover curso de um docente
-removerCursoDoDocente: function(docenteId, curso) {
-    const docente = this.getDocentePorId(docenteId);
-    if (!docente) return false;
-    
-    const index = docente.cursos.indexOf(curso);
-    if (index === -1) return false;
-    
-    docente.cursos.splice(index, 1);
-    this.salvar('docentes', this.docentes);
-    return true;
-},
-
-// Atualizar dados do docente (modificado para arrays)
-atualizarDocenteCompleto: function(id, dadosAtualizados) {
-    const index = this.docentes.findIndex(d => d.id === id);
-    if (index === -1) return false;
-    
-    // Garantir que disciplinas e cursos sejam arrays
-    if (dadosAtualizados.disciplinas && !Array.isArray(dadosAtualizados.disciplinas)) {
-        dadosAtualizados.disciplinas = [dadosAtualizados.disciplinas];
-    }
-    
-    if (dadosAtualizados.cursos && !Array.isArray(dadosAtualizados.cursos)) {
-        dadosAtualizados.cursos = [dadosAtualizados.cursos];
-    }
-    
-    this.docentes[index] = { 
-        ...this.docentes[index], 
-        ...dadosAtualizados 
-    };
-    
-    // Atualizar disciplinas/cursos no sistema global
-    if (dadosAtualizados.disciplinas) {
-        dadosAtualizados.disciplinas.forEach(disciplina => {
-            this.adicionarDisciplina(disciplina);
-        });
-    }
-    
-    if (dadosAtualizados.cursos) {
-        dadosAtualizados.cursos.forEach(curso => {
-            this.adicionarCurso(curso);
-        });
-    }
-    
-    this.salvar('docentes', this.docentes);
-    return true;
-},
-
     // ========== OPERAÇÕES DE ARMAZENAMENTO ==========
     
     // Carregar todos os dados do localStorage
@@ -545,7 +418,6 @@ atualizarDocenteCompleto: function(id, dadosAtualizados) {
 
 // Inicializar automaticamente
 SistemaStorage.inicializar();
-
 
 // Exportar para uso global
 window.SistemaStorage = SistemaStorage;
