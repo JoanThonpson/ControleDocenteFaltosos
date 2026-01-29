@@ -238,7 +238,7 @@ function configurarEventos() {
         atualizarTabelaDocentes();
     });
     
-    // ========== BOTÕES DO CONTROLE ADMINISTRATIVO ==========
+    // ========== BOTÕES DO Relatórios e Estatísticas ==========
     
     // Botão aplicar filtro de estatísticas
     document.getElementById('aplicarFiltroBtn')?.addEventListener('click', aplicarFiltroEstatisticas);
@@ -619,7 +619,7 @@ function carregarJustificativas() {
     }
 }
 
-// ========== FUNÇÕES DE CONTROLE ADMINISTRATIVO ==========
+// ========== FUNÇÕES DE RELATÓRIOS E ESTATÍSTICAS ==========
 
 function atualizarEstatisticasCompletas() {
     const container = document.getElementById('estatisticas');
@@ -767,7 +767,7 @@ function aplicarFiltroEstatisticas() {
 
     carregarResumoFaltasPorDocente(true);
     
-    alert('📊 Filtro aplicado às estatísticas e à tabela de resumo!');
+   // alert('📊 Filtro aplicado às estatísticas e à tabela de resumo!');
 }
 
 // ========== FUNÇÕES DE DOCENTE ==========
@@ -1088,7 +1088,7 @@ function salvarDocente() {
         // EDITAR DOCENTE EXISTENTE
         resultado = SistemaStorage.atualizarDocente(docenteEditandoId, dadosDocente);
         if (resultado) {
-            alert(`✅ Docente "${nome}" atualizado com sucesso!`);
+           // alert(`✅ Docente "${nome}" atualizado com sucesso!`);
         }
     } else {
         // NOVO DOCENTE
@@ -1638,7 +1638,22 @@ function carregarResumoFaltasPorDocente(usarFiltro = false) {
         faltasParaAnalise = SistemaStorage.faltas;
     }
     
+    // FILTRAR APENAS DOCENTES ATIVOS
+    const docentesAtivos = SistemaStorage.docentes.filter(docente => docente.ativo !== false);
+    
     // Verificar se há dados para mostrar
+    if (docentesAtivos.length === 0) {
+        tbody.innerHTML = `
+            <tr>
+                <td colspan="5" class="text-center text-muted py-3">
+                    <i class="fas fa-user-slash me-2"></i>
+                    Nenhum docente ativo encontrado no sistema
+                </td>
+            </tr>
+        `;
+        return;
+    }
+    
     if (faltasParaAnalise.length === 0) {
         tbody.innerHTML = `
             <tr>
@@ -1651,10 +1666,17 @@ function carregarResumoFaltasPorDocente(usarFiltro = false) {
         return;
     }
     
-    SistemaStorage.docentes.forEach(docente => {
-        // USAR faltasParaAnalise (que pode estar filtrada)
+    // PERCORRER APENAS DOCENTES ATIVOS
+    docentesAtivos.forEach(docente => {
+        // USAR faltasParaAnalise (que pode estar filtrada por data)
         const faltasDocente = faltasParaAnalise.filter(f => f.docenteId === docente.id);
         const totalFaltas = faltasDocente.reduce((sum, f) => sum + f.quantidadeFaltas, 0);
+        
+        // Se o docente não tem faltas no período (ou em geral), pode pular
+        if (totalFaltas === 0 && usarFiltro) {
+            return; // Não mostrar docentes sem faltas no período filtrado
+        }
+        
         const justificadas = faltasDocente
             .filter(f => f.justificada)
             .reduce((sum, f) => sum + f.quantidadeFaltas, 0);
@@ -1679,51 +1701,17 @@ function carregarResumoFaltasPorDocente(usarFiltro = false) {
         `;
         tbody.appendChild(tr);
     });
-}
-
-function atualizarSelectsCursos() {
-    // Atualizar select no modal de docente
-    const selectDocente = document.getElementById('docenteCursoSelect');
-    if (selectDocente) {
-        const selectedValue = selectDocente.value;
-        selectDocente.innerHTML = '<option value="">Selecione um curso</option>';
-        
-        SistemaStorage.getCursosOrdenados().forEach(curso => {
-            const option = document.createElement('option');
-            option.value = curso;
-            option.textContent = curso;
-            selectDocente.appendChild(option);
-        });
-        
-        // Adicionar opção de novo curso
-        const novaOption = document.createElement('option');
-        novaOption.value = 'novo_curso';
-        novaOption.textContent = '+ Novo Curso';
-        selectDocente.appendChild(novaOption);
-        
-        // Restaurar seleção se ainda existir
-        if (selectedValue && SistemaStorage.cursos.includes(selectedValue)) {
-            selectDocente.value = selectedValue;
-        }
-    }
     
-    // Atualizar select no modal de falta
-    const selectFalta = document.getElementById('cursoSelect');
-    if (selectFalta) {
-        const selectedValue = selectFalta.value;
-        selectFalta.innerHTML = '<option value="">Selecione um curso</option>';
-        
-        SistemaStorage.getCursosOrdenados().forEach(curso => {
-            const option = document.createElement('option');
-            option.value = curso;
-            option.textContent = curso;
-            selectFalta.appendChild(option);
-        });
-        
-        // Restaurar seleção se ainda existir
-        if (selectedValue && SistemaStorage.cursos.includes(selectedValue)) {
-            selectFalta.value = selectedValue;
-        }
+    // Se após o filtro não houver linhas (todos os ativos sem faltas no período)
+    if (tbody.innerHTML === '') {
+        tbody.innerHTML = `
+            <tr>
+                <td colspan="5" class="text-center text-muted py-3">
+                    <i class="fas fa-check-circle me-2"></i>
+                    Nenhuma falta encontrada para docentes ativos ${usarFiltro && filtroAtivo() ? 'no período selecionado' : ''}
+                </td>
+            </tr>
+        `;
     }
 }
 
@@ -2237,7 +2225,7 @@ function gerarRelatorioDocentes() {
     // CRIAR CABEÇALHO DO RELATÓRIO COM INFORMAÇÃO DO FILTRO
     let relatorio = `
         RELATÓRIO DE DOCENTES - SISTEMA DE CONTROLE DE FALTAS
-        =====================================================
+        ================================================================
         Data do Relatório: ${dataAtual}
     `;
     
@@ -2255,7 +2243,7 @@ function gerarRelatorioDocentes() {
     relatorio += `
         
         RESUMO GERAL:
-        -------------
+        ---------------------------------------------------------------
         • Total de Docentes: ${totalDocentes}
         • Docentes Ativos: ${docentesAtivos}
         • Docentes Inativos: ${docentesInativos}
@@ -2264,11 +2252,14 @@ function gerarRelatorioDocentes() {
         • Faltas Não Justificadas: ${totalFaltas - faltasJustificadas}
         
         LISTA DE DOCENTES:
-        ------------------
+        ----------------------------------------------------------------
     `;
     
     // MODIFICAR cálculo das faltas por docente para usar dados filtrados
-    SistemaStorage.docentes.forEach((docente, index) => {
+        // Mostrar apenas docentes ativos no relatório
+    SistemaStorage.docentes
+        .filter(docente => docente.ativo !== false)
+        .forEach((docente, index) => {
         // USAR faltasParaRelatorio em vez de SistemaStorage.faltas
         const faltasDocente = faltasParaRelatorio
             .filter(f => f.docenteId === docente.id)
@@ -2276,7 +2267,6 @@ function gerarRelatorioDocentes() {
         
         relatorio += `
         ${index + 1}. ${docente.nome}
-           - Status: ${docente.ativo !== false ? 'ATIVO' : 'INATIVO'}
            - Disciplinas: ${docente.disciplinas.join(', ')}
            - Cursos: ${docente.cursos.join(', ')}
            - Aulas/Semana: ${docente.aulas}
@@ -2284,10 +2274,10 @@ function gerarRelatorioDocentes() {
         `;
     });
     
-    relatorio += `
-        =====================================================
-        Relatório gerado automaticamente pelo sistema.
-    `;
+    //relatorio += `
+    //    =============================================================
+    //    Relatório gerado automaticamente pelo sistema.
+    //`;
     
     // Criar um popup com o relatório
     const janelaRelatorio = window.open('', '_blank');
