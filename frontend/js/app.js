@@ -7,6 +7,56 @@ let faltaEditandoId = null;   // Para controlar edição de falta
 let filtroStatusAtual = 'todos'; // 'todos', 'ativos', 'inativos'
 let buscaAtual = ''; // Termo de busca atual
 
+// ========== FUNÇÕES AUXILIARES PARA FILTRO ==========
+
+// Função para obter datas do filtro atual
+function getDatasFiltroAtual() {
+    const dataInicio = document.getElementById('dataInicio')?.value || '';
+    const dataFim = document.getElementById('dataFim')?.value || '';
+    return { dataInicio, dataFim };
+}
+
+// Função para verificar se há filtro ativo
+function filtroAtivo() {
+    const { dataInicio, dataFim } = getDatasFiltroAtual();
+    return !!(dataInicio || dataFim); // Retorna true se qualquer data estiver preenchida
+}
+
+// Função para filtrar faltas por período
+function getFaltasFiltradasPorPeriodo(dataInicio, dataFim) {
+    // Se não houver datas, retorna todas as faltas
+    if (!dataInicio && !dataFim) {
+        return SistemaStorage.faltas;
+    }
+    
+    return SistemaStorage.faltas.filter(falta => {
+        if (!falta.data) return false;
+        
+        const dataFalta = new Date(falta.data);
+        
+        // Filtro com data início E data fim
+        if (dataInicio && dataFim) {
+            const inicio = new Date(dataInicio);
+            const fim = new Date(dataFim);
+            return dataFalta >= inicio && dataFalta <= fim;
+        }
+        
+        // Filtro apenas com data início
+        if (dataInicio && !dataFim) {
+            const inicio = new Date(dataInicio);
+            return dataFalta >= inicio;
+        }
+        
+        // Filtro apenas com data fim
+        if (!dataInicio && dataFim) {
+            const fim = new Date(dataFim);
+            return dataFalta <= fim;
+        }
+        
+        return true;
+    });
+}
+
 // ========== INICIALIZAÇÃO ==========
 document.addEventListener('DOMContentLoaded', function() {
     console.log('DOM carregado');
@@ -92,6 +142,7 @@ function configurarInterface() {
     atualizarTabelaDocentes(); 
     atualizarTabelaFaltas();
     atualizarEstatisticasCompletas();
+    carregarResumoFaltasPorDocente(); // Carrega sem filtro inicialmente
     
     // Atualizar filtro de anos dinamicamente
     atualizarFiltroAnos();
@@ -712,8 +763,11 @@ function aplicarFiltroEstatisticas() {
             </small>
         `;
     }
+    // Carregar resumo de faltas por docente com filtro
+
+    carregarResumoFaltasPorDocente(true);
     
-    alert('📊 Filtro aplicado às estatísticas!');
+    alert('📊 Filtro aplicado às estatísticas e à tabela de resumo!');
 }
 
 // ========== FUNÇÕES DE DOCENTE ==========
@@ -1568,14 +1622,38 @@ function salvarCurso() {
     }
 }
 
-function carregarResumoFaltasPorDocente() {
+function carregarResumoFaltasPorDocente(usarFiltro = false) {
     const tbody = document.getElementById('tabelaResumoFaltas');
     if (!tbody) return;
     
     tbody.innerHTML = '';
     
+    // OBTER DADOS FILTRADOS OU TODOS
+    let faltasParaAnalise = [];
+    
+    if (usarFiltro && filtroAtivo()) {
+        const { dataInicio, dataFim } = getDatasFiltroAtual();
+        faltasParaAnalise = getFaltasFiltradasPorPeriodo(dataInicio, dataFim);
+    } else {
+        faltasParaAnalise = SistemaStorage.faltas;
+    }
+    
+    // Verificar se há dados para mostrar
+    if (faltasParaAnalise.length === 0) {
+        tbody.innerHTML = `
+            <tr>
+                <td colspan="5" class="text-center text-muted py-3">
+                    <i class="fas fa-search me-2"></i>
+                    Nenhuma falta encontrada ${usarFiltro && filtroAtivo() ? 'no período selecionado' : 'no sistema'}
+                </td>
+            </tr>
+        `;
+        return;
+    }
+    
     SistemaStorage.docentes.forEach(docente => {
-        const faltasDocente = SistemaStorage.faltas.filter(f => f.docenteId === docente.id);
+        // USAR faltasParaAnalise (que pode estar filtrada)
+        const faltasDocente = faltasParaAnalise.filter(f => f.docenteId === docente.id);
         const totalFaltas = faltasDocente.reduce((sum, f) => sum + f.quantidadeFaltas, 0);
         const justificadas = faltasDocente
             .filter(f => f.justificada)
@@ -2135,29 +2213,53 @@ function carregarListaJustificativasConfig() {
 function gerarRelatorioDocentes() {
     console.log('Gerando relatório de docentes...');
     
+    // OBTER DADOS DO FILTRO
+    const { dataInicio, dataFim } = getDatasFiltroAtual();
+    const temFiltro = filtroAtivo();
+    
+    // OBTER FALTAS (FILTRADAS OU TODAS)
+    const faltasParaRelatorio = temFiltro 
+        ? getFaltasFiltradasPorPeriodo(dataInicio, dataFim)
+        : SistemaStorage.faltas;
+    
     // Coletar dados para o relatório
     const dataAtual = new Date().toLocaleDateString('pt-BR');
     const totalDocentes = SistemaStorage.docentes.length;
     const docentesAtivos = SistemaStorage.docentes.filter(d => d.ativo !== false).length;
     const docentesInativos = totalDocentes - docentesAtivos;
     
-    const totalFaltas = SistemaStorage.faltas.reduce((sum, f) => sum + f.quantidadeFaltas, 0);
-    const faltasJustificadas = SistemaStorage.faltas
+    // Usar faltasParaRelatorio em vez de SistemaStorage.faltas
+    const totalFaltas = faltasParaRelatorio.reduce((sum, f) => sum + f.quantidadeFaltas, 0);
+    const faltasJustificadas = faltasParaRelatorio
         .filter(f => f.justificada)
         .reduce((sum, f) => sum + f.quantidadeFaltas, 0);
     
-    // Criar conteúdo do relatório
+    // CRIAR CABEÇALHO DO RELATÓRIO COM INFORMAÇÃO DO FILTRO
     let relatorio = `
         RELATÓRIO DE DOCENTES - SISTEMA DE CONTROLE DE FALTAS
         =====================================================
         Data do Relatório: ${dataAtual}
+    `;
+    
+    // ADICIONAR INFORMAÇÃO DO PERÍODO DO FILTRO
+    if (temFiltro) {
+        const periodoTexto = dataInicio && dataFim 
+            ? `Período: ${formatarData(dataInicio)} a ${formatarData(dataFim)}`
+            : dataInicio 
+                ? `A partir de: ${formatarData(dataInicio)}`
+                : `Até: ${formatarData(dataFim)}`;
+        
+        relatorio += `        ${periodoTexto}\n`;
+    }
+    
+    relatorio += `
         
         RESUMO GERAL:
         -------------
         • Total de Docentes: ${totalDocentes}
         • Docentes Ativos: ${docentesAtivos}
         • Docentes Inativos: ${docentesInativos}
-        • Total de Faltas Registradas: ${totalFaltas}
+        • Total de Faltas Registradas: ${totalFaltas} ${temFiltro ? '(no período)' : ''}
         • Faltas Justificadas: ${faltasJustificadas}
         • Faltas Não Justificadas: ${totalFaltas - faltasJustificadas}
         
@@ -2165,8 +2267,10 @@ function gerarRelatorioDocentes() {
         ------------------
     `;
     
+    // MODIFICAR cálculo das faltas por docente para usar dados filtrados
     SistemaStorage.docentes.forEach((docente, index) => {
-        const faltasDocente = SistemaStorage.faltas
+        // USAR faltasParaRelatorio em vez de SistemaStorage.faltas
+        const faltasDocente = faltasParaRelatorio
             .filter(f => f.docenteId === docente.id)
             .reduce((sum, f) => sum + f.quantidadeFaltas, 0);
         
@@ -2176,7 +2280,7 @@ function gerarRelatorioDocentes() {
            - Disciplinas: ${docente.disciplinas.join(', ')}
            - Cursos: ${docente.cursos.join(', ')}
            - Aulas/Semana: ${docente.aulas}
-           - Total de Faltas: ${faltasDocente}
+           - Total de Faltas: ${faltasDocente} ${temFiltro ? '(no período)' : ''}
         `;
     });
     
