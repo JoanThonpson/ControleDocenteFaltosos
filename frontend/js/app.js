@@ -1280,12 +1280,6 @@ function carregarSelectsModalFalta(docenteId = null) {
 // Função para salvar falta
 function salvarFalta() {
     console.log('Executando salvarFalta()...', { editando: faltaEditandoId });
-
-    // Validação adicional: docente deve ter disciplinas e cursos
-if (!validarDocenteSelecionado(docenteId)) {
-    alert('❌ Este docente não tem disciplinas ou cursos cadastrados. Edite o docente primeiro.');
-    return;
-}
     
     const docenteId = parseInt(document.getElementById('docenteSelect')?.value) || 0;
     const disciplina = document.getElementById('disciplinaSelect')?.value;
@@ -1298,6 +1292,12 @@ if (!validarDocenteSelecionado(docenteId)) {
     const horarioFim = document.getElementById('faltaHorarioFim')?.value;
     const observacoes = document.getElementById('faltaObservacoes')?.value;
     
+    // Validação adicional: docente deve ter disciplinas e cursos
+if (!validarDocenteSelecionado(docenteId)) {
+    alert('❌ Este docente não tem disciplinas ou cursos cadastrados. Edite o docente primeiro.');
+    return;
+}
+
     console.log('Dados da falta:', {
         docenteId, disciplina, curso, quantidade, faltaJustificada, 
         justificativa, data, horarioInicio, horarioFim, observacoes
