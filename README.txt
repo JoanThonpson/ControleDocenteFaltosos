@@ -1,3 +1,5 @@
+-----------------------------------------------------------------------PREVIA DA AESTRUTURA---------------------------------------------------------------------------------
+
 sistema-faltas/                # Pasta raiz do projeto
 │
 ├── frontend/                  # Frontend
@@ -46,29 +48,28 @@ sistema-faltas/                # Pasta raiz do projeto
 
 
 
-------------------------------------------------------------------
+----------------------------------------------------------------------------------------------------------------------------
 
-PERGUNTAS PARA VOCÊ:
-Quer implementar o módulo state.js primeiro?
+🔐 Sistema de Permissões Sugerido
+Permissão	Master	Administrador	Usuário
+Cadastrar docente	✅	✅	❌
+Editar docente	✅	✅	Apenas próprios
+Excluir docente	✅	✅	❌
+Registrar falta	✅	✅	✅
+Editar falta	✅	✅	Apenas próprias
+Configurações	✅	✅	❌
+Gerenciar usuários	✅	❌	❌
+Relatórios	✅	✅	Apenas visualizar
 
-Quer ajustar o index.html para referenciar os arquivos corretamente?
+---------------------------------------------------------------------------------------------------------------
 
-Quer focar primeiro na navegação ou nos serviços de autenticação?
+📊 Melhorias Adicionais Sugeridas
+Histórico de alterações: Registrar quem fez cada modificação
 
+Backup automático: Salvar dados em JSON periodicamente
 
+Validação de CPF: Para login de usuários
 
-----------------------------------------------------------------------
+Recuperação de senha: Via email ou token
 
-
-<style> 
-.hidden { display: none; } 
-.login-container { max-width: 400px; margin: 100px auto; padding: 30px; border-radius: 10px; box-shadow: 0 0 20px rgba(0,0,0,0.1); } 
-.admin-login { background-color: #fff3cd; border: 1px solid #ffeaa7; } 
-.badge-justificada { background-color: #28a745; } 
-.badge-falta { background-color: #dc3545; } 
-.filtro-container { background-color: #f8f9fa; padding: 20px; border-radius: 5px; margin-bottom: 20px; } 
-.nav-tabs .nav-link.active { font-weight: bold; } 
-.table th { background-color: #343a40; color: white; } 
-.config-item { padding: 8px 12px; border-bottom: 1px solid #dee2e6; } 
-.config-item:last-child { border-bottom: none; } 
-</style>
+Dashboard inicial: Com gráficos de faltas por mês/docente
