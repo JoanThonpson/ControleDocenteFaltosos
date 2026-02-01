@@ -1154,6 +1154,41 @@ function abrirModalFalta() {
     
     // Carregar selects com dados do SistemaStorage
     carregarSelectsModalFalta();
+
+    // Configurar evento para quando mudar o docente
+    const docenteSelect = document.getElementById('docenteSelect');
+    if (docenteSelect) {
+    docenteSelect.addEventListener('change', function() {
+        const docenteId = parseInt(this.value) || null;
+        
+         // Salvar seleções atuais antes de limpar
+         const disciplinaAtual = document.getElementById('disciplinaSelect')?.value;
+        const cursoAtual = document.getElementById('cursoSelect')?.value;
+        
+        // Recarregar disciplinas e cursos específicos do docente
+        carregarSelectsModalFalta(docenteId);
+        
+        // Tentar restaurar seleções se forem válidas para o novo docente
+        setTimeout(() => {
+            const disciplinaSelect = document.getElementById('disciplinaSelect');
+            const cursoSelect = document.getElementById('cursoSelect');
+            
+            if (disciplinaAtual && disciplinaSelect) {
+                const opcoesDisciplina = Array.from(disciplinaSelect.options).map(o => o.value);
+                if (opcoesDisciplina.includes(disciplinaAtual)) {
+                    disciplinaSelect.value = disciplinaAtual;
+                }
+            }
+            
+            if (cursoAtual && cursoSelect) {
+                const opcoesCurso = Array.from(cursoSelect.options).map(o => o.value);
+                if (opcoesCurso.includes(cursoAtual)) {
+                    cursoSelect.value = cursoAtual;
+                }
+            }
+        }, 50);
+    });
+}
     
         // Mostrar modal
     const modalElement = document.getElementById('addFaltaModal');
@@ -1245,6 +1280,12 @@ function carregarSelectsModalFalta(docenteId = null) {
 // Função para salvar falta
 function salvarFalta() {
     console.log('Executando salvarFalta()...', { editando: faltaEditandoId });
+
+    // Validação adicional: docente deve ter disciplinas e cursos
+if (!validarDocenteSelecionado(docenteId)) {
+    alert('❌ Este docente não tem disciplinas ou cursos cadastrados. Edite o docente primeiro.');
+    return;
+}
     
     const docenteId = parseInt(document.getElementById('docenteSelect')?.value) || 0;
     const disciplina = document.getElementById('disciplinaSelect')?.value;
@@ -2050,7 +2091,7 @@ window.editarFalta = function(id) {
     document.getElementById('faltaModalTitle').textContent = `Editar Falta - ${docente?.nome || 'Docente'}`;
     
     // Carregar selects (caso não estejam carregados)
-    carregarSelectsModalFalta();
+    carregarSelectsModalFalta(falta.docenteId);
     
     // Mostrar modal
     const modalElement = document.getElementById('addFaltaModal');
@@ -2194,6 +2235,26 @@ function carregarListaJustificativasConfig() {
         `;
         lista.appendChild(item);
     });
+}
+
+// Função para verificar se docente tem disciplinas/cursos cadastrados
+function validarDocenteSelecionado(docenteId) {
+    if (!docenteId) return true; // Sem docente selecionado é válido
+    
+    const disciplinas = SistemaStorage.getDisciplinasPorDocente(docenteId);
+    const cursos = SistemaStorage.getCursosPorDocente(docenteId);
+    
+    if (disciplinas.length === 0) {
+        console.warn(`Docente ID ${docenteId} não tem disciplinas cadastradas`);
+        return false;
+    }
+    
+    if (cursos.length === 0) {
+        console.warn(`Docente ID ${docenteId} não tem cursos cadastrados`);
+        return false;
+    }
+    
+    return true;
 }
 
 // ========== FUNÇÕES DO RELATÓRIO ==========
