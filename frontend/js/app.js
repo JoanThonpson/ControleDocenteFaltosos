@@ -630,6 +630,8 @@ window.excluirDocente = function(id) {
     }, 'Você não tem permissão para excluir docentes!');
 };
 
+// ========== FUNÇÃO EDITAR FALTA ==========
+
 window.editarFalta = function(id) {
     verificarPermissaoExecucao('editar_falta', function() {
         console.log('Editando falta ID:', id);
@@ -642,8 +644,58 @@ window.editarFalta = function(id) {
         
         faltaEditandoId = id;
         
-        // ... (resto da função permanece igual)
+        // Preencher formulário com dados da falta
+        const docenteSelect = document.getElementById('docenteSelect');
+        const disciplinaSelect = document.getElementById('disciplinaSelect');
+        const cursoSelect = document.getElementById('cursoSelect');
+        const quantidadeFaltas = document.getElementById('quantidadeFaltas');
+        const faltaJustificada = document.getElementById('faltaJustificada');
+        const faltaData = document.getElementById('faltaData');
+        const horarioInicio = document.getElementById('faltaHorarioInicio');
+        const horarioFim = document.getElementById('faltaHorarioFim');
+        const observacoes = document.getElementById('faltaObservacoes');
         
+        if (docenteSelect) docenteSelect.value = falta.docenteId;
+        
+        // Carregar selects com base no docente
+        carregarSelectsModalFalta(falta.docenteId);
+        
+        // Aguardar selects carregarem para setar os valores
+        setTimeout(() => {
+            if (disciplinaSelect) disciplinaSelect.value = falta.disciplina;
+            if (cursoSelect) cursoSelect.value = falta.curso;
+            if (quantidadeFaltas) quantidadeFaltas.value = falta.quantidadeFaltas;
+            if (faltaJustificada) faltaJustificada.value = falta.justificada ? 'sim' : 'nao';
+            if (faltaData) faltaData.value = falta.data;
+            if (horarioInicio) horarioInicio.value = falta.horarioInicio;
+            if (horarioFim) horarioFim.value = falta.horarioFim;
+            if (observacoes) observacoes.value = falta.observacoes || '';
+            
+            // Configurar justificativa se necessário
+            if (falta.justificada && falta.justificativa) {
+                const justificativaSelect = document.getElementById('justificativaSelect');
+                if (justificativaSelect) {
+                    justificativaSelect.value = falta.justificativa;
+                }
+                toggleCampoJustificativa();
+            } else {
+                toggleCampoJustificativa();
+            }
+        }, 300);
+        
+        // Atualizar título do modal
+        const docente = SistemaStorage.getDocentePorId(falta.docenteId);
+        const modalTitle = document.getElementById('faltaModalTitle');
+        if (modalTitle) {
+            modalTitle.textContent = `Editar Falta - ${docente?.nome || 'Docente'}`;
+        }
+        
+        // Mostrar modal
+        const modalElement = document.getElementById('addFaltaModal');
+        if (modalElement) {
+            const modal = new bootstrap.Modal(modalElement);
+            modal.show();
+        }
     }, 'Você não tem permissão para editar faltas!');
 };
 
@@ -1608,6 +1660,153 @@ function atualizarContadorDocentes(mostrando, total) {
     }
 }
 
+// ========== FUNÇÕES PARA EDIÇÃO DE PERMISSÕES ==========
+
+// Função para abrir o modal de edição de permissões
+window.editarPermissoesPerfil = function(perfilId) {
+    console.log('Editando permissões do perfil ID:', perfilId);
+    
+    if (!temPermissao('gerenciar_perfis')) {
+        alert('❌ Você não tem permissão para editar perfis!');
+        return;
+    }
+    
+    const perfil = SistemaStorage.getPerfilPorId(perfilId);
+    if (!perfil) {
+        alert('❌ Perfil não encontrado!');
+        return;
+    }
+    
+    // Verificar se é Master (não editável)
+    if (perfil.nome === 'Master') {
+        alert('❌ O perfil Master não pode ser editado!');
+        return;
+    }
+    
+    perfilEditandoId = perfilId;
+    
+    // Atualizar título do modal
+    document.getElementById('perfilNomeTitulo').textContent = perfil.nome;
+    
+    // Mostrar/ocultar warning do Master
+    document.getElementById('masterWarning').style.display = 'none';
+    
+    // Carregar permissões atuais
+    carregarPermissoesNoModal(perfil);
+    
+    // Abrir modal
+    const modalElement = document.getElementById('editarPermissoesModal');
+    const modal = new bootstrap.Modal(modalElement);
+    modal.show();
+};
+
+// Função para carregar as permissões no modal
+function carregarPermissoesNoModal(perfil) {
+    // Lista de todas as permissões possíveis
+    const permissoes = [
+        'ver_faltas', 'registrar_falta', 'editar_falta', 'excluir_falta',
+        'ver_docentes', 'cadastrar_docente', 'editar_docente', 'excluir_docente',
+        'ver_justificativas', 'gerenciar_justificativas',
+        'ver_relatorios', 'gerar_relatorio_pdf',
+        'acessar_configuracoes', 'gerenciar_disciplinas', 'gerenciar_cursos',
+        'gerenciar_usuarios', 'editar_usuario', 'resetar_senhas',
+        'visualizar_logs', 'gerenciar_perfis'
+    ];
+    
+    // Para cada permissão, marcar o checkbox se estiver ativa
+    permissoes.forEach(permissao => {
+        const checkbox = document.getElementById(`perm_${permissao}`);
+        if (checkbox) {
+            checkbox.checked = perfil.permissoes[permissao] === true;
+        }
+    });
+}
+
+// Função para selecionar todos os checkboxes de um módulo
+window.selecionarTodosModulo = function(modulo) {
+    let checkboxes = [];
+    
+    if (modulo === 'todos') {
+        // Selecionar TODOS os checkboxes
+        checkboxes = document.querySelectorAll('.permissao-checkbox');
+    } else {
+        // Selecionar apenas os de um módulo específico
+        checkboxes = document.querySelectorAll(`.permissao-checkbox[data-modulo="${modulo}"]`);
+    }
+    
+    checkboxes.forEach(cb => cb.checked = true);
+};
+
+// Função para limpar todos os checkboxes de um módulo
+window.limparTodosModulo = function(modulo) {
+    let checkboxes = [];
+    
+    if (modulo === 'todos') {
+        checkboxes = document.querySelectorAll('.permissao-checkbox');
+    } else {
+        checkboxes = document.querySelectorAll(`.permissao-checkbox[data-modulo="${modulo}"]`);
+    }
+    
+    checkboxes.forEach(cb => cb.checked = false);
+};
+
+// Função para salvar as permissões
+function salvarPermissoes() {
+    if (!perfilEditandoId) {
+        alert('❌ Erro: ID do perfil não encontrado!');
+        return;
+    }
+    
+    const perfil = SistemaStorage.getPerfilPorId(perfilEditandoId);
+    if (!perfil) {
+        alert('❌ Perfil não encontrado!');
+        return;
+    }
+    
+    // Coletar todas as permissões dos checkboxes
+    const novasPermissoes = {};
+    const checkboxes = document.querySelectorAll('.permissao-checkbox');
+    
+    checkboxes.forEach(checkbox => {
+        const permissao = checkbox.getAttribute('data-permissao');
+        novasPermissoes[permissao] = checkbox.checked;
+    });
+    
+    // Confirmar com o usuário
+    if (!confirm(`Deseja salvar as novas permissões para o perfil "${perfil.nome}"?`)) {
+        return;
+    }
+    
+    // Atualizar no storage
+    if (SistemaStorage.atualizarPerfil(perfilEditandoId, { permissoes: novasPermissoes })) {
+        // Fechar modal
+        const modal = bootstrap.Modal.getInstance(document.getElementById('editarPermissoesModal'));
+        if (modal) modal.hide();
+        
+        // Atualizar lista de perfis
+        carregarListaPerfis();
+        
+        // Se o usuário atual tiver este perfil, aplicar novas permissões
+        const usuarioAtual = SistemaStorage.getUsuarioAtual();
+        if (usuarioAtual && usuarioAtual.perfil_id === perfilEditandoId) {
+            aplicarPermissoesInterface();
+        }
+        
+        alert(`✅ Permissões do perfil "${perfil.nome}" atualizadas com sucesso!`);
+    } else {
+        alert('❌ Erro ao salvar permissões!');
+    }
+}
+
+// Configurar evento do botão salvar
+document.addEventListener('DOMContentLoaded', function() {
+    const salvarBtn = document.getElementById('salvarPermissoesBtn');
+    if (salvarBtn) {
+        salvarBtn.addEventListener('click', salvarPermissoes);
+    }
+});
+
+
 // ========== FUNÇÃO ATUALIZAR TABELA DE FALTAS ==========
 
 function atualizarTabelaFaltas() {
@@ -1725,11 +1924,14 @@ function setFiltroAtivo(filtro) {
     }
 }
 
-// ========== FUNÇÕES DE JUSTIFICATIVAS ==========
+// ========== FUNÇÃO CARREGAR JUSTIFICATIVAS ==========
 
 function carregarJustificativas() {
+    console.log('Carregando justificativas para aba...');
+    
     const lista = document.getElementById('listaJustificativas');
     const buscaInput = document.getElementById('buscaJustificativa');
+    const contador = document.getElementById('contadorJustificativas');
     
     if (!lista) {
         console.error('Elemento #listaJustificativas não encontrado!');
@@ -1748,14 +1950,19 @@ function carregarJustificativas() {
                 <small>Vá em <strong>Configurações → Justificativas</strong> para adicionar</small>
             </div>
         `;
+        if (contador) contador.textContent = '0';
         return;
     }
     
     // Filtrar por busca se houver termo
     const termoBusca = buscaInput?.value.toLowerCase() || '';
-    const justificativasFiltradas = justificativas.filter(j => 
-        j.toLowerCase().includes(termoBusca)
-    );
+    let justificativasFiltradas = justificativas;
+    
+    if (termoBusca) {
+        justificativasFiltradas = justificativas.filter(j => 
+            j.toLowerCase().includes(termoBusca)
+        );
+    }
     
     if (justificativasFiltradas.length === 0) {
         lista.innerHTML = `
@@ -1764,6 +1971,7 @@ function carregarJustificativas() {
                 <p class="mb-0">Nenhuma justificativa encontrada para "${termoBusca}"</p>
             </div>
         `;
+        if (contador) contador.textContent = '0';
         return;
     }
     
@@ -1783,18 +1991,30 @@ function carregarJustificativas() {
                     ${quantidadeUso} ${quantidadeUso === 1 ? 'falta registrada' : 'faltas registradas'} com esta justificativa
                 </div>
             </div>
-            <div class="badge bg-${emUso ? 'success' : 'secondary'}">
-                ${emUso ? 'Em uso' : 'Não utilizada'}
+            <div>
+                <span class="badge bg-${emUso ? 'success' : 'secondary'} me-2">
+                    ${emUso ? 'Em uso' : 'Não utilizada'}
+                </span>
+                <button class="btn btn-sm btn-outline-primary" onclick="editarJustificativa('${justificativa.replace(/'/g, "\\'")}')">
+                    <i class="fas fa-edit"></i>
+                </button>
             </div>
         `;
         lista.appendChild(item);
     });
     
-    // Configurar busca em tempo real
-    if (buscaInput) {
-        buscaInput.addEventListener('input', carregarJustificativas);
+    if (contador) {
+        contador.textContent = justificativasFiltradas.length;
     }
 }
+
+// Função auxiliar para editar justificativa (chamada da aba)
+window.editarJustificativa = function(descricaoAtual) {
+    const novaDescricao = prompt('Editar justificativa:', descricaoAtual);
+    if (novaDescricao && novaDescricao.trim() !== descricaoAtual) {
+        editarJustificativaConfig(descricaoAtual);
+    }
+};
 
 // ========== FUNÇÕES DE RELATÓRIOS E ESTATÍSTICAS ==========
 
@@ -3344,14 +3564,11 @@ function salvarPerfil() {
     }
 }
 
-// ========== FUNÇÃO CARREGAR LISTA DE PERFIS (ATUALIZADA) ==========
+// ========== FUNÇÃO CARREGAR LISTA DE PERFIS ==========
 
 function carregarListaPerfis() {
     const lista = document.getElementById('listaPerfis');
-    if (!lista) {
-        console.log('Elemento #listaPerfis não encontrado');
-        return;
-    }
+    if (!lista) return;
     
     lista.innerHTML = '';
     
@@ -3385,20 +3602,20 @@ function carregarListaPerfis() {
                         ${perfil.descricao || 'Sem descrição'}
                     </div>
                     <div class="small">
-                        <span class="badge ${perfil.nome === 'Master' ? 'bg-danger' : 'bg-info'}">
-                            Perfil Pré-definido
-                        </span>
+                        <span class="badge bg-info">Perfil Pré-definido</span>
                         <span class="badge ${emUso ? 'bg-success' : 'bg-secondary'} ms-2">
                             ${usuariosComPerfil} usuário(s)
                         </span>
                     </div>
                 </div>
                 <div class="btn-group">
-                    <button class="btn btn-sm btn-outline-primary me-1" onclick="visualizarDetalhesPerfil(${perfil.id})">
+                    <button class="btn btn-sm btn-outline-primary me-1" onclick="visualizarDetalhesPerfil(${perfil.id})"
+                            title="Visualizar permissões">
                         <i class="fas fa-eye"></i>
                     </button>
                     ${podeEditar ? `
-                    <button class="btn btn-sm btn-outline-warning" onclick="editarPermissoesPerfil(${perfil.id})">
+                    <button class="btn btn-sm btn-outline-warning" onclick="editarPermissoesPerfil(${perfil.id})"
+                            title="Editar permissões">
                         <i class="fas fa-edit"></i>
                     </button>
                     ` : ''}
@@ -3407,12 +3624,6 @@ function carregarListaPerfis() {
         `;
         lista.appendChild(item);
     });
-    
-    // ESCONDER O BOTÃO "NOVO PERFIL" - não vamos criar novos perfis
-    const btnNovoPerfil = document.getElementById('btnNovoPerfil');
-    if (btnNovoPerfil) {
-        btnNovoPerfil.style.display = 'none';
-    }
 }
 
 // ========== FUNÇÃO VISUALIZAR DETALHES DO PERFIL ==========
@@ -3764,143 +3975,147 @@ window.visualizarPermissoesPerfil = function(perfilId) {
     });
 };
 
+// ========== FUNÇÃO EDITAR PERMISSÕES (CORRIGIDA) ==========
+
 window.editarPermissoesPerfil = function(perfilId) {
+    console.log('Editando permissões do perfil ID:', perfilId);
+    
     if (!temPermissao('gerenciar_perfis')) {
-        alert('❌ Você não tem permissão para editar permissões!');
+        alert('❌ Você não tem permissão para editar perfis!');
         return;
     }
     
     const perfil = SistemaStorage.getPerfilPorId(perfilId);
-    if (!perfil || perfil.nome === 'Master') {
-        alert('❌ Não é possível editar as permissões do perfil Master!');
+    if (!perfil) {
+        alert('❌ Perfil não encontrado!');
         return;
     }
     
-    // Aqui você pode criar um modal interativo para editar permissões
-    // Para simplificar, vou mostrar um alerta com opções
-    const opcoes = {
-        'Gestor': 'Todas as permissões (exceto Master)',
-        'Operador': 'Permissões limitadas (pode ver tudo, editar docentes, mas não excluir)',
-        'Supervisor': 'Apenas visualização e relatórios'
-    };
+    // Verificar se é Master (não editável)
+    if (perfil.nome === 'Master') {
+        alert('❌ O perfil Master não pode ser editado!');
+        return;
+    }
     
-    let mensagem = `Editar permissões do perfil: ${perfil.nome}\n\n`;
-    mensagem += 'Selecione um modelo de permissões:\n\n';
+    perfilEditandoId = perfilId;
     
-    Object.entries(opcoes).forEach(([nome, descricao]) => {
-        if (nome !== 'Master') {
-            mensagem += `${nome}: ${descricao}\n`;
-        }
-    });
+    // Atualizar título do modal
+    const tituloElement = document.getElementById('perfilNomeTitulo');
+    if (tituloElement) {
+        tituloElement.textContent = perfil.nome;
+    }
     
-    const modelo = prompt(mensagem + '\nDigite o nome do modelo (Gestor, Operador ou Supervisor):', perfil.nome);
+    // Esconder warning do Master
+    const masterWarning = document.getElementById('masterWarning');
+    if (masterWarning) {
+        masterWarning.style.display = 'none';
+    }
     
-    if (modelo) {
-        // Atualizar permissões baseado no modelo
-        let novasPermissoes = {};
-        
-        switch(modelo.toUpperCase()) {
-            case 'GESTOR':
-                // Todas permissões (exceto alterar Master)
-                novasPermissoes = {
-                    ver_faltas: true,
-                    registrar_falta: true,
-                    editar_falta: true,
-                    excluir_falta: true,
-                    ver_docentes: true,
-                    cadastrar_docente: true,
-                    editar_docente: true,
-                    excluir_docente: true,
-                    ver_justificativas: true,
-                    gerenciar_justificativas: true,
-                    ver_relatorios: true,
-                    gerar_relatorio_pdf: true,
-                    acessar_configuracoes: true,
-                    gerenciar_disciplinas: true,
-                    gerenciar_cursos: true,
-                    gerenciar_usuarios: true,
-                    editar_usuario: true,
-                    resetar_senhas: true,
-                    visualizar_logs: true,
-                    gerenciar_perfis: true
-                };
-                break;
-                
-            case 'OPERADOR':
-                // Permissões limitadas
-                novasPermissoes = {
-                    ver_faltas: true,
-                    registrar_falta: true,
-                    editar_falta: false,
-                    excluir_falta: false,
-                    ver_docentes: true,
-                    cadastrar_docente: false,
-                    editar_docente: true,
-                    excluir_docente: false,
-                    ver_justificativas: true,
-                    gerenciar_justificativas: false,
-                    ver_relatorios: true,
-                    gerar_relatorio_pdf: false,
-                    acessar_configuracoes: false,
-                    gerenciar_disciplinas: false,
-                    gerenciar_cursos: false,
-                    gerenciar_usuarios: false,
-                    editar_usuario: false,
-                    resetar_senhas: false,
-                    visualizar_logs: false,
-                    gerenciar_perfis: false
-                };
-                break;
-                
-            case 'SUPERVISOR':
-                // Apenas visualização
-                novasPermissoes = {
-                    ver_faltas: true,
-                    registrar_falta: false,
-                    editar_falta: false,
-                    excluir_falta: false,
-                    ver_docentes: true,
-                    cadastrar_docente: false,
-                    editar_docente: false,
-                    excluir_docente: false,
-                    ver_justificativas: true,
-                    gerenciar_justificativas: false,
-                    ver_relatorios: true,
-                    gerar_relatorio_pdf: true,
-                    acessar_configuracoes: false,
-                    gerenciar_disciplinas: false,
-                    gerenciar_cursos: false,
-                    gerenciar_usuarios: false,
-                    editar_usuario: false,
-                    resetar_senhas: false,
-                    visualizar_logs: false,
-                    gerenciar_perfis: false
-                };
-                break;
-                
-            default:
-                alert('❌ Modelo inválido!');
-                return;
-        }
-        
-        if (confirm(`Confirmar alteração das permissões do perfil "${perfil.nome}" para o modelo "${modelo}"?`)) {
-            if (SistemaStorage.atualizarPerfil(perfilId, { permissoes: novasPermissoes })) {
-                alert(`✅ Permissões do perfil "${perfil.nome}" atualizadas com sucesso!`);
-                
-                // Atualizar lista de perfis
-                carregarListaPerfis();
-                
-                // Aplicar novas permissões na interface se o usuário atual foi afetado
-                const usuarioAtual = SistemaStorage.getUsuarioAtual();
-                if (usuarioAtual && usuarioAtual.perfil_id === perfilId) {
-                    aplicarPermissoesInterface();
-                }
-            } else {
-                alert('❌ Erro ao atualizar permissões!');
-            }
-        }
+    // Carregar permissões atuais
+    carregarPermissoesNoModal(perfil);
+    
+    // Abrir modal
+    const modalElement = document.getElementById('editarPermissoesModal');
+    if (modalElement) {
+        const modal = new bootstrap.Modal(modalElement);
+        modal.show();
+    } else {
+        console.error('Modal de permissões não encontrado!');
+        alert('❌ Erro ao abrir modal de permissões!');
     }
 };
+
+// Função para carregar as permissões no modal
+function carregarPermissoesNoModal(perfil) {
+    console.log('Carregando permissões para:', perfil.nome);
+    
+    // Lista de todas as permissões possíveis
+    const permissoes = [
+        'ver_faltas', 'registrar_falta', 'editar_falta', 'excluir_falta',
+        'ver_docentes', 'cadastrar_docente', 'editar_docente', 'excluir_docente',
+        'ver_justificativas', 'gerenciar_justificativas',
+        'ver_relatorios', 'gerar_relatorio_pdf',
+        'acessar_configuracoes', 'gerenciar_disciplinas', 'gerenciar_cursos',
+        'gerenciar_usuarios', 'editar_usuario', 'resetar_senhas',
+        'visualizar_logs', 'gerenciar_perfis'
+    ];
+    
+    // Para cada permissão, marcar o checkbox se estiver ativa
+    permissoes.forEach(permissao => {
+        const checkbox = document.getElementById(`perm_${permissao}`);
+        if (checkbox) {
+            checkbox.checked = perfil.permissoes[permissao] === true;
+            console.log(`Permissão ${permissao}: ${checkbox.checked}`);
+        } else {
+            console.warn(`Checkbox perm_${permissao} não encontrado`);
+        }
+    });
+}
+
+// Função para salvar as permissões
+function salvarPermissoes() {
+    console.log('Salvando permissões...');
+    
+    if (!perfilEditandoId) {
+        alert('❌ Erro: ID do perfil não encontrado!');
+        return;
+    }
+    
+    const perfil = SistemaStorage.getPerfilPorId(perfilEditandoId);
+    if (!perfil) {
+        alert('❌ Perfil não encontrado!');
+        return;
+    }
+    
+    // Coletar todas as permissões dos checkboxes
+    const novasPermissoes = {};
+    const checkboxes = document.querySelectorAll('.permissao-checkbox');
+    
+    checkboxes.forEach(checkbox => {
+        const permissao = checkbox.getAttribute('data-permissao');
+        novasPermissoes[permissao] = checkbox.checked;
+    });
+    
+    console.log('Novas permissões:', novasPermissoes);
+    
+    // Confirmar com o usuário
+    if (!confirm(`Deseja salvar as novas permissões para o perfil "${perfil.nome}"?`)) {
+        return;
+    }
+    
+    // Atualizar no storage
+    if (SistemaStorage.atualizarPerfil(perfilEditandoId, { permissoes: novasPermissoes })) {
+        // Fechar modal
+        const modal = bootstrap.Modal.getInstance(document.getElementById('editarPermissoesModal'));
+        if (modal) modal.hide();
+        
+        // Atualizar lista de perfis
+        carregarListaPerfis();
+        
+        // Se o usuário atual tiver este perfil, aplicar novas permissões
+        const usuarioAtual = SistemaStorage.getUsuarioAtual();
+        if (usuarioAtual && usuarioAtual.perfil_id === perfilEditandoId) {
+            aplicarPermissoesInterface();
+        }
+        
+        alert(`✅ Permissões do perfil "${perfil.nome}" atualizadas com sucesso!`);
+    } else {
+        alert('❌ Erro ao salvar permissões!');
+    }
+}
+
+// Garantir que o botão salvar está configurado
+document.addEventListener('DOMContentLoaded', function() {
+    const salvarBtn = document.getElementById('salvarPermissoesBtn');
+    if (salvarBtn) {
+        // Remover listeners antigos
+        const newSalvarBtn = salvarBtn.cloneNode(true);
+        salvarBtn.parentNode.replaceChild(newSalvarBtn, salvarBtn);
+        
+        // Adicionar novo listener
+        newSalvarBtn.addEventListener('click', salvarPermissoes);
+    }
+});
 
 // ========== FUNÇÕES GLOBAIS PARA PERFIS ==========
 window.editarPerfil = function(id) {
@@ -4135,6 +4350,107 @@ function gerarNovaSenhaUsuario(usuarioId) {
         alert('✅ Nova senha gerada com sucesso!\n\nSenha: ' + novaSenha + '\n\nAnote esta senha!');
     } else {
         alert('❌ Erro ao gerar nova senha!');
+    }
+}
+
+// ========== FUNÇÃO SALVAR USUÁRIO ==========
+
+function salvarUsuario() {
+    const usuarioId = usuarioEditandoId;
+    const nome = document.getElementById('usuarioNome')?.value.trim();
+    const cpf = document.getElementById('usuarioCPF')?.value;
+    const email = document.getElementById('usuarioEmail')?.value.trim();
+    const perfilId = parseInt(document.getElementById('usuarioPerfil')?.value);
+    const senha = document.getElementById('usuarioSenha')?.value;
+    const confirmarSenha = document.getElementById('usuarioConfirmarSenha')?.value;
+    const ativo = document.getElementById('usuarioAtivo')?.checked;
+    
+    // Validações
+    if (!nome) {
+        alert('❌ Digite o nome do usuário!');
+        return;
+    }
+    
+    if (!cpf || cpf.length !== 14) {
+        alert('❌ Digite um CPF válido!');
+        return;
+    }
+    
+    if (!perfilId) {
+        alert('❌ Selecione um perfil!');
+        return;
+    }
+    
+    // Validar senha se for novo usuário
+    if (!usuarioId) {
+        if (senha && senha !== confirmarSenha) {
+            alert('❌ As senhas não coincidem!');
+            return;
+        }
+        
+        if (senha && senha.length < 6) {
+            alert('❌ A senha deve ter pelo menos 6 caracteres!');
+            return;
+        }
+    }
+    
+    // Preparar dados do usuário
+    const dadosUsuario = {
+        nome: nome,
+        cpf: cpf,
+        email: email || '',
+        perfil_id: perfilId,
+        ativo: ativo !== false
+    };
+    
+    // Adicionar senha se for novo usuário
+    if (!usuarioId) {
+        dadosUsuario.senha_hash = senha || gerarSenhaAleatoria();
+    }
+    
+    let resultado = false;
+    let mensagem = '';
+    
+    if (usuarioId) {
+        // Editar usuário existente
+        resultado = SistemaStorage.atualizarUsuario(usuarioId, dadosUsuario);
+        mensagem = resultado ? 
+            '✅ Usuário atualizado com sucesso!' : 
+            '❌ Erro ao atualizar usuário!';
+    } else {
+        // Novo usuário
+        const id = SistemaStorage.adicionarUsuario(dadosUsuario);
+        resultado = !!id;
+        mensagem = resultado ? 
+            '✅ Usuário cadastrado com sucesso!' : 
+            '❌ Erro ao cadastrar usuário!';
+        
+        // Mostrar senha gerada
+        if (resultado && !senha) {
+            const senhaGerada = dadosUsuario.senha_hash;
+            const senhaGeradaElement = document.getElementById('senhaGerada');
+            const senhaContainer = document.getElementById('senhaGeradaContainer');
+            
+            if (senhaGeradaElement) {
+                senhaGeradaElement.textContent = senhaGerada;
+            }
+            if (senhaContainer) {
+                senhaContainer.style.display = 'block';
+            }
+        }
+    }
+    
+    if (resultado) {
+        // Fechar modal
+        const modal = bootstrap.Modal.getInstance(document.getElementById('addUsuarioModal'));
+        if (modal) modal.hide();
+        
+        // ATUALIZAR LISTA DE USUÁRIOS IMEDIATAMENTE
+        carregarListaUsuarios();
+        
+        alert(mensagem);
+    } else {
+        alert(mensagem);
     }
 }
 

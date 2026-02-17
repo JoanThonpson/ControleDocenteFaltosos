@@ -1090,5 +1090,332 @@
         </div>
     </div>
 </div>
+<!-- ========== MODAL DE EDIÇÃO DE PERMISSÕES ========== -->
+<div class="modal fade" id="editarPermissoesModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="fas fa-user-shield me-2"></i>
+                    Editar Permissões: <span id="perfilNomeTitulo"></span>
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+            </div>
+            <div class="modal-body" style="max-height: 70vh; overflow-y: auto;">
+                <form id="permissoesForm">
+                    <!-- Módulo 1: CONTROLE DE FALTAS -->
+                    <div class="card mb-3">
+                        <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+                            <h6 class="mb-0">
+                                <i class="fas fa-calendar-alt me-2"></i>
+                                CONTROLE DE FALTAS
+                            </h6>
+                            <div>
+                                <button type="button" class="btn btn-sm btn-light" onclick="selecionarTodosModulo('faltas')">
+                                    <i class="fas fa-check-double me-1"></i> Todos
+                                </button>
+                                <button type="button" class="btn btn-sm btn-light ms-1" onclick="limparTodosModulo('faltas')">
+                                    <i class="fas fa-times me-1"></i> Limpar
+                                </button>
+                            </div>
+                        </div>
+                        <div class="card-body">
+                            <div class="row">
+                                <div class="col-md-3">
+                                    <div class="form-check">
+                                        <input class="form-check-input permissao-checkbox" type="checkbox" 
+                                               id="perm_ver_faltas" data-modulo="faltas" data-permissao="ver_faltas">
+                                        <label class="form-check-label" for="perm_ver_faltas">
+                                            Visualizar faltas
+                                        </label>
+                                    </div>
+                                </div>
+                                <div class="col-md-3">
+                                    <div class="form-check">
+                                        <input class="form-check-input permissao-checkbox" type="checkbox" 
+                                               id="perm_registrar_falta" data-modulo="faltas" data-permissao="registrar_falta">
+                                        <label class="form-check-label" for="perm_registrar_falta">
+                                            Registrar nova falta
+                                        </label>
+                                    </div>
+                                </div>
+                                <div class="col-md-3">
+                                    <div class="form-check">
+                                        <input class="form-check-input permissao-checkbox" type="checkbox" 
+                                               id="perm_editar_falta" data-modulo="faltas" data-permissao="editar_falta">
+                                        <label class="form-check-label" for="perm_editar_falta">
+                                            Editar falta
+                                        </label>
+                                    </div>
+                                </div>
+                                <div class="col-md-3">
+                                    <div class="form-check">
+                                        <input class="form-check-input permissao-checkbox" type="checkbox" 
+                                               id="perm_excluir_falta" data-modulo="faltas" data-permissao="excluir_falta">
+                                        <label class="form-check-label" for="perm_excluir_falta">
+                                            Excluir faltas
+                                        </label>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Módulo 2: DADOS DO DOCENTE -->
+                    <div class="card mb-3">
+                        <div class="card-header bg-success text-white d-flex justify-content-between align-items-center">
+                            <h6 class="mb-0">
+                                <i class="fas fa-users me-2"></i>
+                                DADOS DO DOCENTE
+                            </h6>
+                            <div>
+                                <button type="button" class="btn btn-sm btn-light" onclick="selecionarTodosModulo('docentes')">
+                                    <i class="fas fa-check-double me-1"></i> Todos
+                                </button>
+                                <button type="button" class="btn btn-sm btn-light ms-1" onclick="limparTodosModulo('docentes')">
+                                    <i class="fas fa-times me-1"></i> Limpar
+                                </button>
+                            </div>
+                        </div>
+                        <div class="card-body">
+                            <div class="row">
+                                <div class="col-md-3">
+                                    <div class="form-check">
+                                        <input class="form-check-input permissao-checkbox" type="checkbox" 
+                                               id="perm_ver_docentes" data-modulo="docentes" data-permissao="ver_docentes">
+                                        <label class="form-check-label" for="perm_ver_docentes">
+                                            Visualizar docentes
+                                        </label>
+                                    </div>
+                                </div>
+                                <div class="col-md-3">
+                                    <div class="form-check">
+                                        <input class="form-check-input permissao-checkbox" type="checkbox" 
+                                               id="perm_cadastrar_docente" data-modulo="docentes" data-permissao="cadastrar_docente">
+                                        <label class="form-check-label" for="perm_cadastrar_docente">
+                                            Cadastrar novo docente
+                                        </label>
+                                    </div>
+                                </div>
+                                <div class="col-md-3">
+                                    <div class="form-check">
+                                        <input class="form-check-input permissao-checkbox" type="checkbox" 
+                                               id="perm_editar_docente" data-modulo="docentes" data-permissao="editar_docente">
+                                        <label class="form-check-label" for="perm_editar_docente">
+                                            Editar docente
+                                        </label>
+                                    </div>
+                                </div>
+                                <div class="col-md-3">
+                                    <div class="form-check">
+                                        <input class="form-check-input permissao-checkbox" type="checkbox" 
+                                               id="perm_excluir_docente" data-modulo="docentes" data-permissao="excluir_docente">
+                                        <label class="form-check-label" for="perm_excluir_docente">
+                                            Excluir docentes
+                                        </label>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Módulo 3: JUSTIFICATIVAS -->
+                    <div class="card mb-3">
+                        <div class="card-header bg-info text-white d-flex justify-content-between align-items-center">
+                            <h6 class="mb-0">
+                                <i class="fas fa-file-alt me-2"></i>
+                                JUSTIFICATIVAS
+                            </h6>
+                            <div>
+                                <button type="button" class="btn btn-sm btn-light" onclick="selecionarTodosModulo('justificativas')">
+                                    <i class="fas fa-check-double me-1"></i> Todos
+                                </button>
+                                <button type="button" class="btn btn-sm btn-light ms-1" onclick="limparTodosModulo('justificativas')">
+                                    <i class="fas fa-times me-1"></i> Limpar
+                                </button>
+                            </div>
+                        </div>
+                        <div class="card-body">
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="form-check">
+                                        <input class="form-check-input permissao-checkbox" type="checkbox" 
+                                               id="perm_ver_justificativas" data-modulo="justificativas" data-permissao="ver_justificativas">
+                                        <label class="form-check-label" for="perm_ver_justificativas">
+                                            Visualizar justificativas
+                                        </label>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="form-check">
+                                        <input class="form-check-input permissao-checkbox" type="checkbox" 
+                                               id="perm_gerenciar_justificativas" data-modulo="justificativas" data-permissao="gerenciar_justificativas">
+                                        <label class="form-check-label" for="perm_gerenciar_justificativas">
+                                            Cadastrar/editar justificativas
+                                        </label>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Módulo 4: RELATÓRIOS E ESTATÍSTICAS -->
+                    <div class="card mb-3">
+                        <div class="card-header bg-warning text-dark d-flex justify-content-between align-items-center">
+                            <h6 class="mb-0">
+                                <i class="fas fa-chart-bar me-2"></i>
+                                RELATÓRIOS E ESTATÍSTICAS
+                            </h6>
+                            <div>
+                                <button type="button" class="btn btn-sm btn-light" onclick="selecionarTodosModulo('relatorios')">
+                                    <i class="fas fa-check-double me-1"></i> Todos
+                                </button>
+                                <button type="button" class="btn btn-sm btn-light ms-1" onclick="limparTodosModulo('relatorios')">
+                                    <i class="fas fa-times me-1"></i> Limpar
+                                </button>
+                            </div>
+                        </div>
+                        <div class="card-body">
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="form-check">
+                                        <input class="form-check-input permissao-checkbox" type="checkbox" 
+                                               id="perm_ver_relatorios" data-modulo="relatorios" data-permissao="ver_relatorios">
+                                        <label class="form-check-label" for="perm_ver_relatorios">
+                                            Visualizar relatórios
+                                        </label>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="form-check">
+                                        <input class="form-check-input permissao-checkbox" type="checkbox" 
+                                               id="perm_gerar_relatorio_pdf" data-modulo="relatorios" data-permissao="gerar_relatorio_pdf">
+                                        <label class="form-check-label" for="perm_gerar_relatorio_pdf">
+                                            Gerar relatório PDF
+                                        </label>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Módulo 5: CONFIGURAÇÕES -->
+                    <div class="card mb-3">
+                        <div class="card-header bg-secondary text-white d-flex justify-content-between align-items-center">
+                            <h6 class="mb-0">
+                                <i class="fas fa-cog me-2"></i>
+                                CONFIGURAÇÕES
+                            </h6>
+                            <div>
+                                <button type="button" class="btn btn-sm btn-light" onclick="selecionarTodosModulo('configuracoes')">
+                                    <i class="fas fa-check-double me-1"></i> Todos
+                                </button>
+                                <button type="button" class="btn btn-sm btn-light ms-1" onclick="limparTodosModulo('configuracoes')">
+                                    <i class="fas fa-times me-1"></i> Limpar
+                                </button>
+                            </div>
+                        </div>
+                        <div class="card-body">
+                            <div class="row">
+                                <div class="col-md-4">
+                                    <div class="form-check">
+                                        <input class="form-check-input permissao-checkbox" type="checkbox" 
+                                               id="perm_acessar_configuracoes" data-modulo="configuracoes" data-permissao="acessar_configuracoes">
+                                        <label class="form-check-label" for="perm_acessar_configuracoes">
+                                            Acessar configurações
+                                        </label>
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <div class="form-check">
+                                        <input class="form-check-input permissao-checkbox" type="checkbox" 
+                                               id="perm_gerenciar_disciplinas" data-modulo="configuracoes" data-permissao="gerenciar_disciplinas">
+                                        <label class="form-check-label" for="perm_gerenciar_disciplinas">
+                                            Gerenciar disciplinas
+                                        </label>
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <div class="form-check">
+                                        <input class="form-check-input permissao-checkbox" type="checkbox" 
+                                               id="perm_gerenciar_cursos" data-modulo="configuracoes" data-permissao="gerenciar_cursos">
+                                        <label class="form-check-label" for="perm_gerenciar_cursos">
+                                            Gerenciar cursos
+                                        </label>
+                                    </div>
+                                </div>
+                                <div class="col-md-4 mt-2">
+                                    <div class="form-check">
+                                        <input class="form-check-input permissao-checkbox" type="checkbox" 
+                                               id="perm_gerenciar_usuarios" data-modulo="configuracoes" data-permissao="gerenciar_usuarios">
+                                        <label class="form-check-label" for="perm_gerenciar_usuarios">
+                                            Gerenciar usuários
+                                        </label>
+                                    </div>
+                                </div>
+                                <div class="col-md-4 mt-2">
+                                    <div class="form-check">
+                                        <input class="form-check-input permissao-checkbox" type="checkbox" 
+                                               id="perm_editar_usuario" data-modulo="configuracoes" data-permissao="editar_usuario">
+                                        <label class="form-check-label" for="perm_editar_usuario">
+                                            Editar usuário
+                                        </label>
+                                    </div>
+                                </div>
+                                <div class="col-md-4 mt-2">
+                                    <div class="form-check">
+                                        <input class="form-check-input permissao-checkbox" type="checkbox" 
+                                               id="perm_resetar_senhas" data-modulo="configuracoes" data-permissao="resetar_senhas">
+                                        <label class="form-check-label" for="perm_resetar_senhas">
+                                            Resetar senhas
+                                        </label>
+                                    </div>
+                                </div>
+                                <div class="col-md-4 mt-2">
+                                    <div class="form-check">
+                                        <input class="form-check-input permissao-checkbox" type="checkbox" 
+                                               id="perm_visualizar_logs" data-modulo="configuracoes" data-permissao="visualizar_logs">
+                                        <label class="form-check-label" for="perm_visualizar_logs">
+                                            Visualizar logs
+                                        </label>
+                                    </div>
+                                </div>
+                                <div class="col-md-4 mt-2">
+                                    <div class="form-check">
+                                        <input class="form-check-input permissao-checkbox" type="checkbox" 
+                                               id="perm_gerenciar_perfis" data-modulo="configuracoes" data-permissao="gerenciar_perfis">
+                                        <label class="form-check-label" for="perm_gerenciar_perfis">
+                                            Gerenciar perfis
+                                        </label>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Observação sobre perfil Master -->
+                    <div class="alert alert-info" id="masterWarning" style="display: none;">
+                        <i class="fas fa-info-circle me-2"></i>
+                        <strong>Perfil Master:</strong> Este perfil tem todas as permissões e não pode ser editado.
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                    <i class="fas fa-times me-1"></i> Cancelar
+                </button>
+                <button type="button" class="btn btn-success" onclick="selecionarTodosModulo('todos')">
+                    <i class="fas fa-check-double me-1"></i> Selecionar Todos
+                </button>
+                <button type="button" class="btn btn-warning" onclick="limparTodosModulo('todos')">
+                    <i class="fas fa-eraser me-1"></i> Limpar Todos
+                </button>
+                <button type="button" class="btn btn-primary" id="salvarPermissoesBtn">
+                    <i class="fas fa-save me-1"></i> Salvar Permissões
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
 </body>
 </html>
