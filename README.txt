@@ -1,10 +1,10 @@
------------------------------------------------------------------------PREVIA DA AESTRUTURA---------------------------------------------------------------------------------
+------------------------------------ESTRUTURA---------------------------------------------
 
 sistema-faltas/                # Pasta raiz do projeto
 │
 ├── frontend/                  # Frontend
 │   ├── login.html            
-|   ├── login.html            
+|   ├── Sistema.html            
 │       ├── css/              # Estilos
 │       │   ├── styles.css    # Principal
 │       │   ├── login.css     # Específico login
@@ -27,7 +27,7 @@ sistema-faltas/                # Pasta raiz do projeto
 │       │   └── icons/        # (se houver)
 │       │
 │       └── fonts/            # Fontes customizadas
-│           └── custom-font.woff2
+│           └── 
 │
 ├── backend/                  # Backend Node.js (Futuro)
 │   ├── src/                  # Código fonte backend
@@ -44,23 +44,140 @@ sistema-faltas/                # Pasta raiz do projeto
     └── migrations/           # Migrações do banco
 
 
+------------------------------------------------------------------------------------------------------------------
+🔐 Sistema de Permissões: (WORK PIO 3.2)
+
+****************MASTER (não editável)- deve fazer tudo do sistema****************
+📍 CONTROLE DE FALTAS
+[✓] Visualizar faltas
+[✓] Registrar nova falta
+[✓] Editar falta
+[✓] Excluir faltas
+
+📍 DADOS DO DOCENTE  
+[✓] Visualizar docentes
+[✓] Cadastrar novo docente
+[✓] Editar docente
+[✓] Excluir docentes
+
+📍 JUSTIFICATIVAS
+[✓] Visualizar justificativas
+[✓] Cadastrar/editar justificativas
+
+📍 RELATÓRIOS E ESTATÍSTICAS
+[✓] Visualizar relatórios
+[✓] Gerar relatório PDF
+
+📍 CONFIGURAÇÕES
+[✓] Acessar configurações
+  ├── [✓] Gerenciar disciplinas
+  ├── [✓] Gerenciar cursos
+  ├── [✓] Gerenciar justificativas
+  ├── [✓] Gerenciar usuários
+  |  ├── [✓] Editar usuário
+  |  ├── [✓] Resetar senhas
+  |  └── [✓] Visualizar logs de atividade
+  ├── [✓] Gerenciar perfis
+  └── [✓] Visualizar logs
+
+***********Gestor*********************
+📍 CONTROLE DE FALTAS
+[✓] Visualizar faltas
+[✓] Registrar nova falta
+[✓] Editar falta
+[✓] Excluir faltas
+
+📍 DADOS DO DOCENTE  
+[✓] Visualizar docentes
+[✓] Cadastrar novo docente
+[✓] Editar docente
+[✓] Excluir docentes
+
+📍 JUSTIFICATIVAS
+[✓] Visualizar justificativas
+[✓] Cadastrar/editar justificativas
+
+📍 RELATÓRIOS E ESTATÍSTICAS
+[✓] Visualizar relatórios
+[✓] Gerar relatório PDF
+
+📍 CONFIGURAÇÕES
+[✓] Acessar configurações
+  ├── [✓] Gerenciar disciplinas
+  ├── [✓] Gerenciar cursos
+  ├── [✓] Gerenciar justificativas
+  ├── [✓] Gerenciar usuários
+  |  ├── [✓] Editar usuário
+  |  ├── [✓] Resetar senhas
+  |  └── [✓] Visualizar logs de atividade
+  ├── [✓] Gerenciar perfis
+  └── [✓] Visualizar logs
 
 
+********OPERADOR*********
+📍 CONTROLE DE FALTAS
+[✓] Visualizar faltas
+[✓] Registrar nova falta
+[✗] Editar falta
+[✗] Excluir faltas
 
+📍 DADOS DO DOCENTE  
+[✓] Visualizar docentes
+[✗] Cadastrar novo docente
+[✓] Editar docente
+[✗] Excluir docentes
 
-----------------------------------------------------------------------------------------------------------------------------
+📍 JUSTIFICATIVAS
+[✓] Visualizar justificativas
 
-🔐 Sistema de Permissões Sugerido
-Permissão	Master	Administrador	Usuário
-Cadastrar docente	✅	✅	❌
-Editar docente	✅	✅	Apenas próprios
-Excluir docente	✅	✅	❌
-Registrar falta	✅	✅	✅
-Editar falta	✅	✅	Apenas próprias
-Configurações	✅	✅	❌
-Gerenciar usuários	✅	❌	❌
-Relatórios	✅	✅	Apenas visualizar
+📍 RELATÓRIOS E ESTATÍSTICAS
+[✓] Visualizar relatórios
+[✗] Gerar relatório PDF
 
+📍 CONFIGURAÇÕES
+[✗] Acessar configurações
+  ├── [✗] Gerenciar disciplinas
+  ├── [✗] Gerenciar cursos
+  ├── [✗] Gerenciar justificativas
+  ├── [✗] Gerenciar usuários
+  |  ├── [✗] Editar usuário
+  |  ├── [✗] Resetar senhas
+  |  └── [✗] Visualizar logs de atividade
+  ├── [✗] Gerenciar perfis
+  └── [✗] Visualizar logs
+
+********SUPERVISOR*********
+📍 CONTROLE DE FALTAS
+[✓] Visualizar faltas
+[✗] Registrar nova falta
+[✗] Editar qualquer falta
+[✗] Editar apenas próprias faltas
+[✗] Excluir faltas
+
+📍 DADOS DO DOCENTE  
+[✓] Visualizar docentes
+[✗] Cadastrar novo docente
+[✗] Editar docente
+[✗] Excluir docentes
+
+📍 JUSTIFICATIVAS
+[✓] Visualizar justificativas
+
+📍 RELATÓRIOS E ESTATÍSTICAS
+[✓] Visualizar relatórios
+[✓] Gerar relatório PDF
+
+📍 CONFIGURAÇÕES
+[✗] Acessar configurações
+  ├── [✗] Gerenciar disciplinas
+  ├── [✗] Gerenciar cursos
+  ├── [✗] Gerenciar justificativas
+  ├── [✗] Gerenciar usuários
+  |  ├── [✗] Editar usuário
+  |  ├── [✗] Resetar senhas
+  |  └── [✗] Visualizar logs de atividade
+  ├── [✗] Gerenciar perfis
+  └── [✗] Visualizar logs
 ---------------------------------------------------------------------------------------------------------------
 
 📊 Melhorias Adicionais Sugeridas
@@ -70,6 +187,33 @@ Backup automático: Salvar dados em JSON periodicamente
 
 Validação de CPF: Para login de usuários
 
-Recuperação de senha: Via email ou token
+Recuperação de senha: Via e-mail ou token
 
 Dashboard inicial: Com gráficos de faltas por mês/docente
+
+---------------------------------------------------------------------------------------------------------------
+
+
+
+
+***GESTÃO DE USUÁRIOS********************
+ETAPA 1: ESTRUTURA DE DADOS ✅
+ETAPA 2: MODIFICAÇÃO DO LOGIN ✅
+ETAPA 3: SISTEMA DE LOGS ✅
+ETAPA 4: VISUALIZAÇÃO DOS LOGS ✅
+ETAPA 5: FILTROS AVANÇADOS ✅
+ETAPA 6: EXPORTAÇÃO ✅ (apenas exportar, não limpar)
+
+🔍 FILTRO POR USUÁRIO:
+[Selecione um usuário...]
+
+Master (000.000.000-00) - Master - Ativo [✏️editar] [🔒excluir]
+  ^-- BOTÕES INATIVOS (cinza, não clicáveis)
+
+João Silva (123.456.789-00) - Gestor - Ativo [✏️ Editar] [🗑️ Excluir*]
+Maria Santos (987.654.321-00) - Operador - Ativo [✏️ Editar] [🗑️ Excluir*]
+Pedro Costa (456.789.123-00) - Supervisor - Inativo [✏️ Editar] [🗑️ Excluir*]
+Carla Lima (789.123.456-00) - Operador - Ativo [✏️ Editar] [🗑️ Excluir*]
+
+*Só pode excluir se não tiver registros (faltas, logs, etc.)
+

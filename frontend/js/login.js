@@ -131,6 +131,7 @@ function criarFormularioAdmin() {
 }
 
 // Configurar eventos do formulário CPF
+// Configurar eventos do formulário CPF
 function configurarFormularioCPF() {
     setTimeout(() => {
         const form = document.getElementById('loginFormCpf');
@@ -139,20 +140,32 @@ function configurarFormularioCPF() {
         if (form) {
             form.addEventListener('submit', function(e) {
                 e.preventDefault();
-                const cpf = document.getElementById('cpf')?.value || '';
-                const senha = document.getElementById('passwordCpf')?.value || '';
-                
-                if (!cpf || !senha) {
-                    alert('Preencha CPF e senha!');
-                    return;
-                }
-                
-                alert('Login CPF em desenvolvimento. Use Admin para teste.');
+                fazerLoginCPF(); // ✅ NOVA FUNÇÃO
             });
         }
         
         if (cpfInput) {
             cpfInput.focus();
+            
+            // Adicionar máscara de CPF
+            cpfInput.addEventListener('input', function(e) {
+                let value = e.target.value.replace(/\D/g, '');
+                
+                if (value.length > 3) {
+                    value = value.replace(/^(\d{3})(\d)/, '$1.$2');
+                }
+                if (value.length > 6) {
+                    value = value.replace(/^(\d{3})\.(\d{3})(\d)/, '$1.$2.$3');
+                }
+                if (value.length > 9) {
+                    value = value.replace(/^(\d{3})\.(\d{3})\.(\d{3})(\d)/, '$1.$2.$3-$4');
+                }
+                if (value.length > 11) {
+                    value = value.substring(0, 14);
+                }
+                
+                e.target.value = value;
+            });
         }
     }, 10);
 }
@@ -176,33 +189,114 @@ function configurarFormularioAdmin() {
     }, 10);
 }
 
-// Função para fazer login Admin
+
+// Função para fazer login Admin/Usuário
 function fazerLoginAdmin() {
     const senha = document.getElementById('passwordAdmin')?.value || '';
     
-    console.log('Tentando login com senha:', senha);
+    console.log('Tentando login Admin com senha:', senha);
     
-    if (senha === 'admin123') {
-        console.log('Senha correta! Fazendo login...');
+    // Usar SistemaStorage para autenticação
+    if (typeof SistemaStorage !== 'undefined') {
+        // Tentar autenticar como Master (admin)
+        const usuario = SistemaStorage.autenticarUsuario('admin', senha);
         
-        // Salvar autenticação
-        localStorage.setItem('sistema_faltas_auth', JSON.stringify({
-            name: 'Administrador',
-            type: 'admin',
-            loginTime: new Date().toISOString()
-        }));
+        if (usuario) {
+            console.log('✅ Login Master bem-sucedido:', usuario.nome);
+            
+            // Salvar usuário no SistemaStorage
+            SistemaStorage.setUsuarioAtual(usuario);
+            
+            // Também salvar no localStorage para compatibilidade
+            localStorage.setItem('sistema_faltas_auth', JSON.stringify({
+                id: usuario.id,
+                name: usuario.nome,
+                type: usuario.master ? 'master' : 'admin',
+                perfil_id: usuario.perfil_id,
+                loginTime: new Date().toISOString()
+            }));
+            
+            console.log('✅ Autenticação salva');
+            
+            // Redirecionar
+            setTimeout(() => {
+                console.log('Redirecionando para sistema.html...');
+                window.location.href = 'sistema.html';
+            }, 300);
+            
+            return;
+        }
         
-        console.log('Autenticação salva no localStorage');
-        
-        // Redirecionar após pequeno delay
-        setTimeout(() => {
-            console.log('Redirecionando para sistema.html...');
-            window.location.href = 'sistema.html';
-        }, 300);
+        alert('❌ Senha incorreta para administrador!');
+        console.log('Senha incorreta para admin');
         
     } else {
-        alert('❌ Senha incorreta! Use: admin123');
-        console.log('Senha incorreta');
+        console.error('SistemaStorage não disponível!');
+        alert('❌ Erro no sistema. Recarregue a página.');
+    }
+}
+
+// Função para fazer login com CPF (usuários normais)
+function fazerLoginCPF() {
+    const cpf = document.getElementById('cpf')?.value || '';
+    const senha = document.getElementById('passwordCpf')?.value || '';
+    
+    console.log('Tentando login CPF:', cpf);
+    
+    // Validar CPF básico
+    if (!cpf || cpf.length < 11) {
+        alert('❌ Digite um CPF válido!');
+        return;
+    }
+    
+    if (!senha) {
+        alert('❌ Digite a senha!');
+        return;
+    }
+    
+    // Usar SistemaStorage para autenticação
+    if (typeof SistemaStorage !== 'undefined') {
+        // Tentar autenticar com CPF
+        const usuario = SistemaStorage.autenticarUsuario(cpf, senha);
+        
+        if (usuario) {
+            console.log('✅ Login bem-sucedido:', usuario.nome);
+            
+            // Verificar se usuário está ativo
+            if (!usuario.ativo) {
+                alert('❌ Usuário inativo! Contate o administrador.');
+                return;
+            }
+            
+            // Salvar usuário no SistemaStorage
+            SistemaStorage.setUsuarioAtual(usuario);
+            
+            // Salvar no localStorage para compatibilidade
+            localStorage.setItem('sistema_faltas_auth', JSON.stringify({
+                id: usuario.id,
+                name: usuario.nome,
+                type: usuario.master ? 'master' : 'usuario',
+                perfil_id: usuario.perfil_id,
+                perfil_nome: SistemaStorage.getNomePerfil(usuario.perfil_id),
+                loginTime: new Date().toISOString()
+            }));
+            
+            console.log('✅ Usuário autenticado:', usuario);
+            
+            // Redirecionar
+            setTimeout(() => {
+                console.log('Redirecionando para sistema.html...');
+                window.location.href = 'sistema.html';
+            }, 300);
+            
+        } else {
+            alert('❌ CPF ou senha incorretos!');
+            console.log('Autenticação falhou para CPF:', cpf);
+        }
+        
+    } else {
+        console.error('SistemaStorage não disponível!');
+        alert('❌ Erro no sistema. Recarregue a página.');
     }
 }
 

@@ -5,6 +5,71 @@
 
 console.log('Storage inicializado...');
 
+// ========== VALIDADOR DE CPF ==========
+function validarCPF(cpf) {
+    console.log('Validando CPF:', cpf);
+    
+    // Remover caracteres não numéricos
+    cpf = cpf.replace(/[^\d]/g, '');
+    
+    // Verificar se tem 11 dígitos
+    if (cpf.length !== 11) {
+        console.log('CPF inválido: não tem 11 dígitos');
+        return false;
+    }
+    
+    // Verificar se todos os dígitos são iguais (ex: 111.111.111-11)
+    if (/^(\d)\1{10}$/.test(cpf)) {
+        console.log('CPF inválido: todos dígitos iguais');
+        return false;
+    }
+    
+    // Validar primeiro dígito verificador
+    let soma = 0;
+    for (let i = 0; i < 9; i++) {
+        soma += parseInt(cpf.charAt(i)) * (10 - i);
+    }
+    let resto = (soma * 10) % 11;
+    if (resto === 10 || resto === 11) resto = 0;
+    if (resto !== parseInt(cpf.charAt(9))) {
+        console.log('CPF inválido: primeiro dígito verificador incorreto');
+        return false;
+    }
+    
+    // Validar segundo dígito verificador
+    soma = 0;
+    for (let i = 0; i < 10; i++) {
+        soma += parseInt(cpf.charAt(i)) * (11 - i);
+    }
+    resto = (soma * 10) % 11;
+    if (resto === 10 || resto === 11) resto = 0;
+    if (resto !== parseInt(cpf.charAt(10))) {
+        console.log('CPF inválido: segundo dígito verificador incorreto');
+        return false;
+    }
+    
+    console.log('CPF válido!');
+    return true;
+}
+
+// ========== FORMATADOR DE CPF ==========
+function formatarCPF(cpf) {
+    if (!cpf) return '';
+    cpf = cpf.replace(/[^\d]/g, '');
+    if (cpf.length !== 11) return cpf;
+    return cpf.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4');
+}
+
+// ========== GERADOR DE SENHA ALEATÓRIA ==========
+function gerarSenhaAleatoria(tamanho = 8) {
+    const caracteres = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789@#$%&';
+    let senha = '';
+    for (let i = 0; i < tamanho; i++) {
+        senha += caracteres.charAt(Math.floor(Math.random() * caracteres.length));
+    }
+    return senha;
+}
+
 // ========== DADOS DO SISTEMA ==========
 const SistemaStorage = {
     // Arrays principais
@@ -13,6 +78,11 @@ const SistemaStorage = {
     justificativas: [],
     docentes: [],
     faltas: [],
+
+    // Dados de usuários e perfis
+    usuarios: [],     
+    perfis: [],         
+    logs: [],           
     
     // Estado da sessão
     usuarioAtual: null,
@@ -28,17 +98,656 @@ const SistemaStorage = {
         if (this.disciplinas.length === 0) {
             this.criarDadosPadrao();
         }
+
+        // Garantir que Master existe
+        this.garantirMasterExiste();
         
         console.log('Sistema de dados pronto:', {
             disciplinas: this.disciplinas.length,
             cursos: this.cursos.length,
             justificativas: this.justificativas.length,
             docentes: this.docentes.length,
-            faltas: this.faltas.length
+            faltas: this.faltas.length,
+            usuarios: this.usuarios.length,     
+            perfis: this.perfis.length,         
+            logs: this.logs.length  
         });
     },
+
+        // ========== GARANTIR MASTER EXISTE ==========
+    garantirMasterExiste: function() {
+        // Verificar se já existe um usuário Master
+        const masterExiste = this.usuarios.some(u => u.master === true);
+        
+        if (!masterExiste) {
+            console.log('Criando usuário Master...');
+            this.criarUsuarioMaster();
+        }
+        
+        // Garantir que perfil Master existe
+        const perfilMasterExiste = this.perfis.some(p => p.id === 1);
+        if (!perfilMasterExiste) {
+            this.criarPerfisPredefinidos();
+        }
+    },
+    
+    // ========== CRIAR USUÁRIO MASTER ==========
+    criarUsuarioMaster: function() {
+        const masterUsuario = {
+            id: 1,
+            nome: "Master",
+            login: "admin",
+            cpf: "000.000.000-00",
+            email: "master@sistema.com",
+            senha_hash: "admin123", // Será criptografada em produção
+            perfil_id: 1, // ID do perfil Master
+            master: true,
+            ativo: true,
+            data_cadastro: new Date().toISOString().split('T')[0],
+            ultimo_login: null
+        };
+        
+        this.usuarios.push(masterUsuario);
+        this.salvar('usuarios', this.usuarios);
+        console.log('Usuário Master criado com sucesso!');
+    },
+    
+    // ========== CRIAR PERFIS PRÉ-DEFINIDOS ==========
+    criarPerfisPredefinidos: function() {
+        console.log('Criando perfis pré-definidos...');
+        
+        // PERFIL 1: MASTER
+        const perfilMaster = {
+            id: 1,
+            nome: "Master",
+            descricao: "Acesso total ao sistema",
+            permissoes: {
+                // Todas permissões ativas
+                ver_faltas: true,
+                registrar_falta: true,
+                editar_falta: true,
+                excluir_falta: true,
+                ver_docentes: true,
+                cadastrar_docente: true,
+                editar_docente: true,
+                excluir_docente: true,
+                ver_justificativas: true,
+                gerenciar_justificativas: true,
+                ver_relatorios: true,
+                gerar_relatorio_pdf: true,
+                acessar_configuracoes: true,
+                gerenciar_disciplinas: true,
+                gerenciar_cursos: true,
+                gerenciar_usuarios: true,
+                editar_usuario: true,
+                resetar_senhas: true,
+                visualizar_logs: true,
+                gerenciar_perfis: true
+            },
+            editavel: false,
+            predefinido: true,
+            data_criacao: new Date().toISOString()
+        };
+        
+        // PERFIL 2: GESTOR
+        const perfilGestor = {
+            id: 2,
+            nome: "Gestor",
+            descricao: "Gerenciamento completo (exceto Master)",
+            permissoes: {
+                ver_faltas: true,
+                registrar_falta: true,
+                editar_falta: true,
+                excluir_falta: true,
+                ver_docentes: true,
+                cadastrar_docente: true,
+                editar_docente: true,
+                excluir_docente: true,
+                ver_justificativas: true,
+                gerenciar_justificativas: true,
+                ver_relatorios: true,
+                gerar_relatorio_pdf: true,
+                acessar_configuracoes: true,
+                gerenciar_disciplinas: true,
+                gerenciar_cursos: true,
+                gerenciar_usuarios: true,
+                editar_usuario: true,
+                resetar_senhas: true,
+                visualizar_logs: true,
+                gerenciar_perfis: true
+            },
+            editavel: true,
+            predefinido: true,
+            data_criacao: new Date().toISOString()
+        };
+        
+        // PERFIL 3: OPERADOR
+        const perfilOperador = {
+            id: 3,
+            nome: "Operador",
+            descricao: "Operações básicas - pode editar docentes, não pode excluir",
+            permissoes: {
+                ver_faltas: true,
+                registrar_falta: true,
+                editar_falta: false,
+                excluir_falta: false,
+                ver_docentes: true,
+                cadastrar_docente: false,
+                editar_docente: true,
+                excluir_docente: false,
+                ver_justificativas: true,
+                gerenciar_justificativas: false,
+                ver_relatorios: true,
+                gerar_relatorio_pdf: false,
+                acessar_configuracoes: false,
+                gerenciar_disciplinas: false,
+                gerenciar_cursos: false,
+                gerenciar_usuarios: false,
+                editar_usuario: false,
+                resetar_senhas: false,
+                visualizar_logs: false,
+                gerenciar_perfis: false
+            },
+            editavel: true,
+            predefinido: true,
+            data_criacao: new Date().toISOString()
+        };
+        
+        // PERFIL 4: SUPERVISOR
+        const perfilSupervisor = {
+            id: 4,
+            nome: "Supervisor",
+            descricao: "Apenas visualização e relatórios",
+            permissoes: {
+                ver_faltas: true,
+                registrar_falta: false,
+                editar_falta: false,
+                excluir_falta: false,
+                ver_docentes: true,
+                cadastrar_docente: false,
+                editar_docente: false,
+                excluir_docente: false,
+                ver_justificativas: true,
+                gerenciar_justificativas: false,
+                ver_relatorios: true,
+                gerar_relatorio_pdf: true,
+                acessar_configuracoes: false,
+                gerenciar_disciplinas: false,
+                gerenciar_cursos: false,
+                gerenciar_usuarios: false,
+                editar_usuario: false,
+                resetar_senhas: false,
+                visualizar_logs: false,
+                gerenciar_perfis: false
+            },
+            editavel: true,
+            predefinido: true,
+            data_criacao: new Date().toISOString()
+        };
+        
+        this.perfis.push(perfilMaster, perfilGestor, perfilOperador, perfilSupervisor);
+        this.salvar('perfis', this.perfis);
+        console.log('4 perfis pré-definidos criados com sucesso!');
+    },
+
+        // ========== OPERAÇÕES DE USUÁRIOS ==========
+    adicionarUsuario: function(dados) {
+        console.log('Adicionando usuário:', dados);
+        
+        // Validar CPF
+        if (!validarCPF(dados.cpf)) {
+            console.error('CPF inválido:', dados.cpf);
+            return false;
+        }
+        
+        // Verificar se CPF já existe
+        const cpfExiste = this.usuarios.some(u => 
+            u.cpf === dados.cpf || u.cpf === formatarCPF(dados.cpf)
+        );
+        
+        if (cpfExiste) {
+            console.error('CPF já cadastrado:', dados.cpf);
+            return false;
+        }
+        
+        // Verificar se email já existe
+        if (dados.email) {
+            const emailExiste = this.usuarios.some(u => 
+                u.email.toLowerCase() === dados.email.toLowerCase()
+            );
+            
+            if (emailExiste) {
+                console.error('Email já cadastrado:', dados.email);
+                return false;
+            }
+        }
+        
+        // Gerar ID único
+        const novoId = this.gerarProximoId('usuarios');
+        
+        // Formatar CPF
+        const cpfFormatado = formatarCPF(dados.cpf);
+        
+        // Criar objeto usuário
+        const novoUsuario = {
+            id: novoId,
+            nome: dados.nome.trim(),
+            login: cpfFormatado, // Login = CPF formatado
+            cpf: cpfFormatado,
+            email: dados.email ? dados.email.trim() : '',
+            senha_hash: dados.senha_hash || gerarSenhaAleatoria(),
+            perfil_id: dados.perfil_id || 3, // Padrão: Operador
+            master: false, // Nunca criar outro master
+            ativo: dados.ativo !== undefined ? dados.ativo : true,
+            data_cadastro: new Date().toISOString().split('T')[0],
+            ultimo_login: null,
+            criado_por: this.usuarioAtual ? this.usuarioAtual.id : 1
+        };
+        
+        this.usuarios.push(novoUsuario);
+        this.salvar('usuarios', this.usuarios);
+        
+        // Registrar log
+        this.registrarLog('CADASTRO_USUARIO', 'Usuários', 
+            `Cadastrou usuário: ${novoUsuario.nome} (${novoUsuario.cpf})`);
+        
+        console.log('Usuário cadastrado com sucesso! ID:', novoId);
+        return novoId;
+    },
+    
+    atualizarUsuario: function(id, dadosAtualizados) {
+        console.log('Atualizando usuário ID:', id, dadosAtualizados);
+        
+        const index = this.usuarios.findIndex(u => u.id === id);
+        if (index === -1) {
+            console.error('Usuário não encontrado ID:', id);
+            return false;
+        }
+        
+        const usuario = this.usuarios[index];
+        
+        // NÃO PERMITIR ALTERAR MASTER
+        if (usuario.master) {
+            console.error('Não é permitido alterar usuário Master');
+            return false;
+        }
+        
+        // Validar CPF se for alterado
+        if (dadosAtualizados.cpf && dadosAtualizados.cpf !== usuario.cpf) {
+            if (!validarCPF(dadosAtualizados.cpf)) {
+                console.error('CPF inválido:', dadosAtualizados.cpf);
+                return false;
+            }
+            
+            // Verificar se novo CPF já existe em outro usuário
+            const cpfExiste = this.usuarios.some(u => 
+                u.id !== id && (u.cpf === dadosAtualizados.cpf || u.cpf === formatarCPF(dadosAtualizados.cpf))
+            );
+            
+            if (cpfExiste) {
+                console.error('CPF já cadastrado em outro usuário:', dadosAtualizados.cpf);
+                return false;
+            }
+            
+            // Formatar CPF e atualizar login
+            dadosAtualizados.cpf = formatarCPF(dadosAtualizados.cpf);
+            dadosAtualizados.login = dadosAtualizados.cpf;
+        }
+        
+        // Validar email se for alterado
+        if (dadosAtualizados.email && dadosAtualizados.email !== usuario.email) {
+            const emailExiste = this.usuarios.some(u => 
+                u.id !== id && u.email.toLowerCase() === dadosAtualizados.email.toLowerCase()
+            );
+            
+            if (emailExiste) {
+                console.error('Email já cadastrado em outro usuário:', dadosAtualizados.email);
+                return false;
+            }
+        }
+        
+        // Atualizar usuário
+        this.usuarios[index] = { ...usuario, ...dadosAtualizados };
+        this.salvar('usuarios', this.usuarios);
+        
+        // Registrar log
+        this.registrarLog('ATUALIZACAO_USUARIO', 'Usuários', 
+            `Atualizou usuário: ${usuario.nome} (${usuario.cpf})`);
+        
+        console.log('Usuário atualizado com sucesso!');
+        return true;
+    },
+    
+    removerUsuario: function(id) {
+        console.log('Tentando remover usuário ID:', id);
+        
+        const index = this.usuarios.findIndex(u => u.id === id);
+        if (index === -1) {
+            console.error('Usuário não encontrado ID:', id);
+            return false;
+        }
+        
+        const usuario = this.usuarios[index];
+        
+        // NÃO PERMITIR REMOVER MASTER
+        if (usuario.master) {
+            console.error('Não é permitido remover usuário Master');
+            return false;
+        }
+        
+        // Verificar se pode ser excluído
+        if (!this.usuarioPodeSerExcluido(id)) {
+            console.error('Usuário não pode ser excluído - tem registros associados');
+            return false;
+        }
+        
+        // Remover usuário
+        this.usuarios.splice(index, 1);
+        this.salvar('usuarios', this.usuarios);
+        
+        // Registrar log
+        this.registrarLog('EXCLUSAO_USUARIO', 'Usuários', 
+            `Excluiu usuário: ${usuario.nome} (${usuario.cpf})`);
+        
+        console.log('Usuário removido com sucesso!');
+        return true;
+    },
+    
+    // ========== VERIFICAR SE USUÁRIO PODE SER EXCLUÍDO ==========
+    usuarioPodeSerExcluido: function(usuarioId) {
+        const usuario = this.getUsuarioPorId(usuarioId);
+        if (!usuario) return false;
+        
+        // Master nunca pode ser excluído
+        if (usuario.master) return false;
+        
+        // Verificar se tem faltas registradas (como usuário responsável)
+        // NOTA: Precisaremos adicionar campo usuario_id nas faltas depois
+        const temFaltas = this.faltas.some(f => 
+            f.usuario_id === usuarioId || f.registrado_por === usuarioId
+        );
+        
+        // Verificar se tem logs (já tem por ser usuário)
+        const temLogs = this.logs.some(l => l.usuario_id === usuarioId);
+        
+        // Se for último administrador ativo, não pode excluir
+        if (usuario.perfil_id === 2) { // Gestor
+            const gestoresAtivos = this.usuarios.filter(u => 
+                u.perfil_id === 2 && u.ativo && u.id !== usuarioId
+            ).length;
+            
+            if (gestoresAtivos === 0) {
+                console.log('Não pode excluir - é o último gestor ativo');
+                return false;
+            }
+        }
+        
+        return !(temFaltas || temLogs);
+    },
+
+        // ========== OPERAÇÕES DE PERFIS ==========
+    getPerfilPorId: function(id) {
+        return this.perfis.find(p => p.id === id) || null;
+    },
+    
+    getPerfilPorNome: function(nome) {
+        return this.perfis.find(p => p.nome.toLowerCase() === nome.toLowerCase()) || null;
+    },
+    
+    adicionarPerfil: function(dados) {
+        // Gerar ID único
+        dados.id = this.gerarProximoId('perfis');
+        dados.editavel = true;
+        dados.predefinido = false;
+        dados.data_criacao = new Date().toISOString();
+        
+        this.perfis.push(dados);
+        this.salvar('perfis', this.perfis);
+        
+        // Registrar log
+        this.registrarLog('CADASTRO_PERFIL', 'Perfis', 
+            `Cadastrou perfil: ${dados.nome}`);
+        
+        return dados.id;
+    },
+    
+    atualizarPerfil: function(id, dadosAtualizados) {
+        const index = this.perfis.findIndex(p => p.id === id);
+        if (index === -1) return false;
+        
+        // Não permitir editar perfis predefinidos (exceto talvez Gestor?)
+        if (this.perfis[index].predefinido && this.perfis[index].nome !== 'Gestor') {
+            console.error('Não é permitido editar perfil predefinido:', this.perfis[index].nome);
+            return false;
+        }
+        
+        this.perfis[index] = { ...this.perfis[index], ...dadosAtualizados };
+        this.salvar('perfis', this.perfis);
+        
+        // Registrar log
+        this.registrarLog('ATUALIZACAO_PERFIL', 'Perfis', 
+            `Atualizou perfil: ${this.perfis[index].nome}`);
+        
+        return true;
+    },
+    
+    removerPerfil: function(id) {
+        const index = this.perfis.findIndex(p => p.id === id);
+        if (index === -1) return false;
+        
+        const perfil = this.perfis[index];
+        
+        // Não permitir remover perfis predefinidos
+        if (perfil.predefinido) {
+            console.error('Não é permitido remover perfil predefinido:', perfil.nome);
+            return false;
+        }
+        
+        // Verificar se perfil está em uso
+        const emUso = this.usuarios.some(u => u.perfil_id === id);
+        if (emUso) {
+            console.error('Perfil está em uso por usuários');
+            return false;
+        }
+        
+        this.perfis.splice(index, 1);
+        this.salvar('perfis', this.perfis);
+        
+        // Registrar log
+        this.registrarLog('EXCLUSAO_PERFIL', 'Perfis', 
+            `Excluiu perfil: ${perfil.nome}`);
+        
+        return true;
+    },
+
+        // ========== SISTEMA DE LOGS ==========
+    registrarLog: function(acao, modulo, detalhes, usuarioId = null) {
+        const usuario = usuarioId ? this.getUsuarioPorId(usuarioId) : this.usuarioAtual;
+        
+        // Obter IP do usuário (simulado para desenvolvimento)
+        const ip = this.obterIPUsuario();
+        
+        const novoLog = {
+            id: this.gerarProximoId('logs'),
+            usuario_id: usuario ? usuario.id : 0,
+            usuario_nome: usuario ? usuario.nome : 'Sistema',
+            usuario_cpf: usuario ? usuario.cpf : 'Sistema',
+            usuario_perfil: usuario ? this.getNomePerfil(usuario.perfil_id) : 'Sistema',
+            usuario_status: usuario ? (usuario.ativo ? 'Ativo' : 'Inativo') : 'Sistema',
+            acao: acao,
+            modulo: modulo,
+            detalhes: detalhes,
+            data: new Date().toISOString().replace('T', ' ').substring(0, 19),
+            ip: ip
+        };
+        
+        this.logs.unshift(novoLog); // Adiciona no início (mais recente primeiro)
+        
+        // Manter máximo de 10.000 logs para não sobrecarregar
+        if (this.logs.length > 10000) {
+            this.logs = this.logs.slice(0, 10000);
+        }
+        
+        this.salvar('logs', this.logs);
+        
+        console.log(`📝 LOG: ${acao} | ${modulo} | ${usuario ? usuario.nome : 'Sistema'}`);
+        return novoLog.id;
+    },
+    
+    obterIPUsuario: function() {
+        // Em produção, isso viria do servidor
+        // Para desenvolvimento, retornamos um IP simulado
+        return '192.168.1.' + Math.floor(Math.random() * 255);
+    },
+    
+    getNomePerfil: function(perfilId) {
+        const perfil = this.getPerfilPorId(perfilId);
+        return perfil ? perfil.nome : 'Desconhecido';
+    },
+    
+    // ========== FILTROS DE LOGS ==========
+    filtrarLogs: function(filtros = {}) {
+        let logsFiltrados = [...this.logs];
+        
+        // Filtrar por período
+        if (filtros.dataInicio) {
+            const inicio = new Date(filtros.dataInicio);
+            logsFiltrados = logsFiltrados.filter(log => new Date(log.data) >= inicio);
+        }
+        
+        if (filtros.dataFim) {
+            const fim = new Date(filtros.dataFim + ' 23:59:59');
+            logsFiltrados = logsFiltrados.filter(log => new Date(log.data) <= fim);
+        }
+        
+        // Filtrar por usuário
+        if (filtros.usuarioId) {
+            logsFiltrados = logsFiltrados.filter(log => log.usuario_id == filtros.usuarioId);
+        }
+        
+        // Filtrar por perfil
+        if (filtros.perfil) {
+            logsFiltrados = logsFiltrados.filter(log => log.usuario_perfil === filtros.perfil);
+        }
+        
+        // Filtrar por status
+        if (filtros.status) {
+            logsFiltrados = logsFiltrados.filter(log => log.usuario_status === filtros.status);
+        }
+        
+        // Filtrar por módulo
+        if (filtros.modulo && filtros.modulo !== 'Todos') {
+            logsFiltrados = logsFiltrados.filter(log => log.modulo === filtros.modulo);
+        }
+        
+        // Filtrar por ação
+        if (filtros.acao && filtros.acao !== 'Todas') {
+            logsFiltrados = logsFiltrados.filter(log => log.acao === filtros.acao);
+        }
+        
+        return logsFiltrados;
+    },
+
+        // ========== MÉTODOS AUXILIARES ==========
+    getUsuarioPorId: function(id) {
+        return this.usuarios.find(u => u.id === id) || null;
+    },
+    
+    getUsuarioPorCPF: function(cpf) {
+        const cpfFormatado = formatarCPF(cpf);
+        return this.usuarios.find(u => u.cpf === cpfFormatado || u.login === cpfFormatado) || null;
+    },
+    
+    getUsuarioPorEmail: function(email) {
+        return this.usuarios.find(u => u.email.toLowerCase() === email.toLowerCase()) || null;
+    },
+    
+    getUsuariosPorPerfil: function(perfilId) {
+        return this.usuarios.filter(u => u.perfil_id === perfilId);
+    },
+    
+    getUsuariosAtivos: function() {
+        return this.usuarios.filter(u => u.ativo);
+    },
+    
+    getUsuariosInativos: function() {
+        return this.usuarios.filter(u => !u.ativo);
+    },
+    
+    // ========== AUTENTICAÇÃO ==========
+    autenticarUsuario: function(login, senha) {
+        console.log('Tentando autenticar:', login);
+        
+        // Se for Master (admin)
+        if (login === 'admin') {
+            const master = this.usuarios.find(u => u.master === true);
+            if (master && senha === master.senha_hash) {
+                // Registrar log de login
+                this.registrarLog('LOGIN', 'Autenticação', 'Login realizado como Master', master.id);
+                return master;
+            }
+            return null;
+        }
+        
+        // Se for CPF (usuário normal)
+        const usuario = this.getUsuarioPorCPF(login);
+        if (!usuario) {
+            console.log('Usuário não encontrado:', login);
+            return null;
+        }
+        
+        if (!usuario.ativo) {
+            console.log('Usuário inativo:', usuario.nome);
+            return null;
+        }
+        
+        // Verificar senha (em produção seria hash)
+        if (senha === usuario.senha_hash) {
+            // Atualizar último login
+            usuario.ultimo_login = new Date().toISOString();
+            this.salvar('usuarios', this.usuarios);
+            
+            // Registrar log de login
+            this.registrarLog('LOGIN', 'Autenticação', 'Login realizado', usuario.id);
+            
+            return usuario;
+        }
+        
+        console.log('Senha incorreta para usuário:', usuario.nome);
+        return null;
+    },
+    
+    // ========== CARREGAR E SALVAR TODOS ==========
+    carregarTodos: function() {
+        this.disciplinas = this.carregar('disciplinas') || [];
+        this.cursos = this.carregar('cursos') || [];
+        this.justificativas = this.carregar('justificativas') || [];
+        this.docentes = this.carregar('docentes') || [];
+        this.faltas = this.carregar('faltas') || [];
+        
+        // NOVOS: Carregar dados de usuários, perfis e logs
+        this.usuarios = this.carregar('usuarios') || [];
+        this.perfis = this.carregar('perfis') || [];
+        this.logs = this.carregar('logs') || [];
+    },
+    
+    salvarTodos: function() {
+        this.salvar('disciplinas', this.disciplinas);
+        this.salvar('cursos', this.cursos);
+        this.salvar('justificativas', this.justificativas);
+        this.salvar('docentes', this.docentes);
+        this.salvar('faltas', this.faltas);
+        
+        // NOVOS: Salvar dados de usuários, perfis e logs
+        this.salvar('usuarios', this.usuarios);
+        this.salvar('perfis', this.perfis);
+        this.salvar('logs', this.logs);
+    },
+
     
     // ========== DADOS PADRÃO ==========
+
+    
     criarDadosPadrao: function() {
         console.log('Criando dados padrão...');
         
@@ -106,9 +815,43 @@ const SistemaStorage = {
                 observacoes: "Apresentou atestado médico",
                 data: "2024-01-15", 
                 horarioInicio: "08:00", 
-                horarioFim: "09:30"
+                horarioFim: "09:30",
+                registrado_por: 1,
+                usuario_id: 1
             }
         ];
+        
+        // Criar perfis pré-definidos
+        this.criarPerfisPredefinidos();
+        
+        // Criar usuário Master
+        this.criarUsuarioMaster();
+        
+        // Adicionar alguns usuários de exemplo
+        this.adicionarUsuario({
+            nome: "João Silva",
+            cpf: "123.456.789-00",
+            email: "joao@escola.com",
+            perfil_id: 2, // Gestor
+            senha_hash: "senha123"
+        });
+        
+        this.adicionarUsuario({
+            nome: "Maria Santos",
+            cpf: "987.654.321-00",
+            email: "maria@escola.com",
+            perfil_id: 3, // Operador
+            senha_hash: "senha123"
+        });
+        
+        this.adicionarUsuario({
+            nome: "Pedro Costa",
+            cpf: "456.789.123-00",
+            email: "pedro@escola.com",
+            perfil_id: 4, // Supervisor
+            ativo: false, // Inativo
+            senha_hash: "senha123"
+        });
         
         // Salvar tudo
         this.salvarTodos();

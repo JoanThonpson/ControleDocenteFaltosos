@@ -81,44 +81,87 @@ document.addEventListener('DOMContentLoaded', function() {
 // ========== FUNÇÕES PRINCIPAIS ==========
 
 function verificarAutenticacao() {
-    // Tentar pegar do SistemaStorage primeiro
+    console.log('🔐 Verificando autenticação...');
+    
     let usuario = null;
     
+    // 1. Tentar pegar do SistemaStorage (sistema novo)
     if (window.SistemaStorage && typeof SistemaStorage.getUsuarioAtual === 'function') {
-        console.log('Verificando autenticação via SistemaStorage');
+        console.log('Buscando usuário no SistemaStorage...');
         usuario = SistemaStorage.getUsuarioAtual();
     }
     
-    // Se não encontrou no SistemaStorage, tentar localStorage antigo
-    if (!usuario) {
-        console.log('Tentando localStorage antigo...');
+    // 2. Se não encontrou, tentar localStorage (compatibilidade)
+    if (!usuario || !usuario.id) {
+        console.log('Buscando no localStorage...');
         const authData = localStorage.getItem('sistema_faltas_auth');
         if (authData) {
             try {
-                usuario = JSON.parse(authData);
-                // Migrar para SistemaStorage
-                if (window.SistemaStorage) {
-                    SistemaStorage.setUsuarioAtual(usuario);
+                const dados = JSON.parse(authData);
+                
+                // Buscar usuário completo no SistemaStorage
+                if (window.SistemaStorage && dados.id) {
+                    usuario = SistemaStorage.getUsuarioPorId(dados.id);
+                    
+                    // Se encontrou, atualizar no SistemaStorage
+                    if (usuario) {
+                        SistemaStorage.setUsuarioAtual(usuario);
+                        console.log('Usuário migrado para SistemaStorage:', usuario.nome);
+                    }
                 }
+                
+                // Se ainda não tem, usar dados básicos do localStorage
+                if (!usuario && dados.name) {
+                    usuario = {
+                        id: dados.id || 0,
+                        nome: dados.name,
+                        perfil_id: dados.perfil_id || 1,
+                        master: dados.type === 'master'
+                    };
+                }
+                
             } catch (e) {
                 console.error('Erro ao parsear authData:', e);
             }
         }
     }
     
-    // Se ainda não tem usuário, redirecionar para login
-    if (!usuario) {
-        console.log('Usuário não autenticado, redirecionando...');
+    // 3. Se ainda não tem usuário, redirecionar para login
+    if (!usuario || !usuario.id) {
+        console.log('❌ Usuário não autenticado, redirecionando para login...');
         window.location.href = 'login.html';
         return false;
     }
     
-    console.log('Usuário autenticado:', usuario);
+    console.log('✅ Usuário autenticado:', usuario);
     
-    // Mostrar informação do usuário
+    // 4. Mostrar informação do usuário na interface
     const userInfo = document.getElementById('userInfo');
     if (userInfo) {
-        userInfo.textContent = `${usuario.name} (Administrador)`;
+        // Obter nome do perfil
+        let perfilNome = 'Usuário';
+        if (usuario.master) {
+            perfilNome = 'Master';
+        } else if (window.SistemaStorage && usuario.perfil_id) {
+            const perfil = SistemaStorage.getPerfilPorId(usuario.perfil_id);
+            perfilNome = perfil ? perfil.nome : 'Usuário';
+        }
+        
+        userInfo.innerHTML = `
+            <i class="fas fa-user-circle me-1"></i>
+            <strong>${usuario.nome}</strong>
+            <span class="badge ${usuario.master ? 'bg-warning' : 'bg-primary'} ms-2">
+                ${perfilNome}
+            </span>
+        `;
+    }
+    
+    // 5. Registrar log de acesso (se SistemaStorage disponível)
+    if (window.SistemaStorage && typeof SistemaStorage.registrarLog === 'function') {
+        setTimeout(() => {
+            SistemaStorage.registrarLog('ACESSO_SISTEMA', 'Sistema', 
+                `Acessou o sistema`, usuario.id);
+        }, 1000);
     }
     
     return true;
