@@ -1,11 +1,54 @@
 // js/app.js -- Arquivo principal do sistema de controle de faltas docentes
 console.log('Sistema iniciando...');
 
+// ========== FUNÇÕES AUXILIARES GLOBAIS ==========
+
+// Função para gerar senha aleatória
+function gerarSenhaAleatoria(tamanho = 10) {
+    const caracteres = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789@#$%&';
+    let senha = '';
+    for (let i = 0; i < tamanho; i++) {
+        senha += caracteres.charAt(Math.floor(Math.random() * caracteres.length));
+    }
+    return senha;
+}
+
 // ========== VARIÁVEIS GLOBAIS PARA CONTROLE ==========
 let docenteEditandoId = null; // Para controlar edição de docente
 let faltaEditandoId = null;   // Para controlar edição de falta
+let usuarioEditandoId = null; // PARA CONTROLE DE EDIÇÃO DE USUÁRIO (ADICIONE ESTA LINHA)
+let perfilEditandoId = null;  // Para controle de edição de perfil (se necessário)
 let filtroStatusAtual = 'todos'; // 'todos', 'ativos', 'inativos'
 let buscaAtual = ''; // Termo de busca atual
+
+// ========== FUNÇÃO UTILITÁRIA PARA CORREÇÃO DE DATAS ==========
+
+function corrigirData(dataString) {
+    if (!dataString) return null;
+    
+    // Se for string no formato YYYY-MM-DD (vindo do input date)
+    if (typeof dataString === 'string' && dataString.match(/^\d{4}-\d{2}-\d{2}$/)) {
+        // Adiciona meio-dia para evitar problema de fuso
+        return new Date(dataString + 'T12:00:00');
+    }
+    
+    // Se já for objeto Date, retorna ele
+    if (dataString instanceof Date) {
+        return dataString;
+    }
+    
+    // Tenta converter outros formatos
+    return new Date(dataString);
+}
+
+function formatarDataCorreta(dataString) {
+    if (!dataString) return '';
+    
+    const data = corrigirData(dataString);
+    if (isNaN(data.getTime())) return dataString;
+    
+    return data.toLocaleDateString('pt-BR');
+}
 
 // ========== FUNÇÕES AUXILIARES PARA FILTRO ==========
 
@@ -22,38 +65,59 @@ function filtroAtivo() {
     return !!(dataInicio || dataFim); // Retorna true se qualquer data estiver preenchida
 }
 
-// Função para filtrar faltas por período
+// ========== FUNÇÃO FILTRAR FALTAS POR PERÍODO ==========
+
 function getFaltasFiltradasPorPeriodo(dataInicio, dataFim) {
+    console.log('Filtrando faltas por período:', { dataInicio, dataFim });
+    
     // Se não houver datas, retorna todas as faltas
     if (!dataInicio && !dataFim) {
         return SistemaStorage.faltas;
     }
     
-    return SistemaStorage.faltas.filter(falta => {
+    // Converter datas usando a função corrigida
+    const inicio = dataInicio ? corrigirData(dataInicio) : null;
+    const fim = dataFim ? corrigirData(dataFim) : null;
+    
+    // Ajustar fim para o final do dia
+    if (fim) {
+        fim.setHours(23, 59, 59, 999);
+    }
+    
+    const faltasFiltradas = SistemaStorage.faltas.filter(falta => {
         if (!falta.data) return false;
         
-        const dataFalta = new Date(falta.data);
+        // Converter data da falta usando a função corrigida
+        const dataFalta = corrigirData(falta.data);
         
-        // Filtro com data início E data fim
-        if (dataInicio && dataFim) {
-            const inicio = new Date(dataInicio);
-            const fim = new Date(dataFim);
-            return dataFalta >= inicio && dataFalta <= fim;
+        let passouNoFiltro = true;
+        
+        // Filtrar por data início
+        if (inicio) {
+            if (dataFalta < inicio) passouNoFiltro = false;
         }
         
-        // Filtro apenas com data início
-        if (dataInicio && !dataFim) {
-            const inicio = new Date(dataInicio);
-            return dataFalta >= inicio;
+        // Filtrar por data fim
+        if (fim && passouNoFiltro) {
+            if (dataFalta > fim) passouNoFiltro = false;
         }
         
-        // Filtro apenas com data fim
-        if (!dataInicio && dataFim) {
-            const fim = new Date(dataFim);
-            return dataFalta <= fim;
-        }
-        
-        return true;
+        return passouNoFiltro;
+    });
+    
+    console.log(`Faltas filtradas: ${faltasFiltradas.length} de ${SistemaStorage.faltas.length}`);
+    return faltasFiltradas;
+}
+
+// ========== FUNÇÃO FILTRAR JUSTIFICATIVAS NA CONFIGURAÇÃO ==========
+
+function filtrarJustificativasConfig() {
+    const busca = document.getElementById('buscaJustificativaConfig')?.value.toLowerCase() || '';
+    const itens = document.querySelectorAll('#listaJustificativasConfig .list-group-item');
+    
+    itens.forEach(item => {
+        const texto = item.querySelector('span')?.textContent.toLowerCase() || '';
+        item.style.display = texto.includes(busca) ? 'flex' : 'none';
     });
 }
 
@@ -167,6 +231,598 @@ function verificarAutenticacao() {
     return true;
 }
 
+// ========== SISTEMA DE PERMISSÕES ==========
+
+// função para editar permissões:
+
+window.editarPermissoesPerfil = function(perfilId) {
+    if (!temPermissao('gerenciar_perfis')) {
+        alert('❌ Você não tem permissão para editar perfis!');
+        return;
+    }
+    
+    const perfil = SistemaStorage.getPerfilPorId(perfilId);
+    if (!perfil) {
+        alert('❌ Perfil não encontrado!');
+        return;
+    }
+    
+    // Verificar se pode editar
+    if (!perfil.editavel) {
+        alert('❌ Este perfil não pode ser editado!');
+        return;
+    }
+    
+    // Criar modal de edição
+    const modalHTML = `
+        <div class="modal fade" id="editarPermissoesModal">
+            <div class="modal-dialog modal-lg">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">
+                            <i class="fas fa-edit me-2"></i>
+                            Editar Permissões: ${perfil.nome}
+                        </h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <p class="text-muted mb-3">${perfil.descricao}</p>
+                        
+                        <div class="accordion" id="accordionPermissoes">
+                            <!-- As permissões serão geradas dinamicamente -->
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                        <button type="button" class="btn btn-primary" id="salvarPermissoesBtn">Salvar Alterações</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    // Inserir modal no DOM
+    const modalContainer = document.createElement('div');
+    modalContainer.innerHTML = modalHTML;
+    document.body.appendChild(modalContainer);
+    
+    // Gerar checkboxes de permissões organizadas por módulo
+    const accordion = modalContainer.querySelector('#accordionPermissoes');
+    
+    // Módulo 1: CONTROLE DE FALTAS
+    let modulo1 = criarModuloPermissoes(
+        'CONTROLE DE FALTAS',
+        'collapseFaltas',
+        [
+            { id: 'ver_faltas', label: 'Visualizar faltas', checked: perfil.permissoes.ver_faltas },
+            { id: 'registrar_falta', label: 'Registrar nova falta', checked: perfil.permissoes.registrar_falta },
+            { id: 'editar_falta', label: 'Editar falta', checked: perfil.permissoes.editar_falta },
+            { id: 'excluir_falta', label: 'Excluir faltas', checked: perfil.permissoes.excluir_falta }
+        ],
+        true // Primeiro aberto
+    );
+    
+    // Módulo 2: DADOS DO DOCENTE
+    let modulo2 = criarModuloPermissoes(
+        'DADOS DO DOCENTE',
+        'collapseDocentes',
+        [
+            { id: 'ver_docentes', label: 'Visualizar docentes', checked: perfil.permissoes.ver_docentes },
+            { id: 'cadastrar_docente', label: 'Cadastrar novo docente', checked: perfil.permissoes.cadastrar_docente },
+            { id: 'editar_docente', label: 'Editar docente', checked: perfil.permissoes.editar_docente },
+            { id: 'excluir_docente', label: 'Excluir docentes', checked: perfil.permissoes.excluir_docente }
+        ]
+    );
+    
+    // Módulo 3: JUSTIFICATIVAS
+    let modulo3 = criarModuloPermissoes(
+        'JUSTIFICATIVAS',
+        'collapseJustificativas',
+        [
+            { id: 'ver_justificativas', label: 'Visualizar justificativas', checked: perfil.permissoes.ver_justificativas },
+            { id: 'gerenciar_justificativas', label: 'Cadastrar/editar justificativas', checked: perfil.permissoes.gerenciar_justificativas }
+        ]
+    );
+    
+    // Módulo 4: RELATÓRIOS E ESTATÍSTICAS
+    let modulo4 = criarModuloPermissoes(
+        'RELATÓRIOS E ESTATÍSTICAS',
+        'collapseRelatorios',
+        [
+            { id: 'ver_relatorios', label: 'Visualizar relatórios', checked: perfil.permissoes.ver_relatorios },
+            { id: 'gerar_relatorio_pdf', label: 'Gerar relatório PDF', checked: perfil.permissoes.gerar_relatorio_pdf }
+        ]
+    );
+    
+    // Módulo 5: CONFIGURAÇÕES
+    let modulo5 = criarModuloPermissoes(
+        'CONFIGURAÇÕES',
+        'collapseConfiguracoes',
+        [
+            { id: 'acessar_configuracoes', label: 'Acessar configurações', checked: perfil.permissoes.acessar_configuracoes },
+            { id: 'gerenciar_disciplinas', label: 'Gerenciar disciplinas', checked: perfil.permissoes.gerenciar_disciplinas },
+            { id: 'gerenciar_cursos', label: 'Gerenciar cursos', checked: perfil.permissoes.gerenciar_cursos },
+            { id: 'gerenciar_justificativas', label: 'Gerenciar justificativas', checked: perfil.permissoes.gerenciar_justificativas },
+            { id: 'gerenciar_usuarios', label: 'Gerenciar usuários', checked: perfil.permissoes.gerenciar_usuarios },
+            { id: 'editar_usuario', label: 'Editar usuário', checked: perfil.permissoes.editar_usuario },
+            { id: 'resetar_senhas', label: 'Resetar senhas', checked: perfil.permissoes.resetar_senhas },
+            { id: 'visualizar_logs', label: 'Visualizar logs', checked: perfil.permissoes.visualizar_logs },
+            { id: 'gerenciar_perfis', label: 'Gerenciar perfis', checked: perfil.permissoes.gerenciar_perfis }
+        ]
+    );
+    
+    accordion.innerHTML = modulo1 + modulo2 + modulo3 + modulo4 + modulo5;
+    
+    // Mostrar modal
+    const modal = new bootstrap.Modal(document.getElementById('editarPermissoesModal'));
+    modal.show();
+    
+    // Configurar botão salvar
+    const salvarBtn = modalContainer.querySelector('#salvarPermissoesBtn');
+    salvarBtn.addEventListener('click', function() {
+        salvarPermissoesPerfil(perfilId, modalContainer);
+    });
+    
+    // Remover modal do DOM quando fechar
+    modalContainer.addEventListener('hidden.bs.modal', function() {
+        document.body.removeChild(modalContainer);
+    });
+};
+
+// Função auxiliar para criar módulo de permissões
+function criarModuloPermissoes(titulo, id, permissoes, show = false) {
+    let html = `
+        <div class="accordion-item">
+            <h2 class="accordion-header">
+                <button class="accordion-button ${show ? '' : 'collapsed'}" type="button" 
+                        data-bs-toggle="collapse" data-bs-target="#${id}">
+                    📍 ${titulo}
+                </button>
+            </h2>
+            <div id="${id}" class="accordion-collapse collapse ${show ? 'show' : ''}">
+                <div class="accordion-body">
+                    <div class="row">
+    `;
+    
+    permissoes.forEach((permissao, index) => {
+        html += `
+            <div class="col-md-6 mb-2">
+                <div class="form-check">
+                    <input class="form-check-input permissao-checkbox" 
+                           type="checkbox" 
+                           id="perm_${permissao.id}"
+                           ${permissao.checked ? 'checked' : ''}
+                           data-permissao="${permissao.id}">
+                    <label class="form-check-label" for="perm_${permissao.id}">
+                        ${permissao.label}
+                    </label>
+                </div>
+            </div>
+        `;
+    });
+    
+    html += `
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    return html;
+}
+
+// Função para salvar permissões
+function salvarPermissoesPerfil(perfilId, modalContainer) {
+    const perfil = SistemaStorage.getPerfilPorId(perfilId);
+    if (!perfil) return;
+    
+    // Coletar todas as permissões dos checkboxes
+    const checkboxes = modalContainer.querySelectorAll('.permissao-checkbox');
+    const novasPermissoes = {};
+    
+    checkboxes.forEach(checkbox => {
+        const permissaoId = checkbox.getAttribute('data-permissao');
+        novasPermissoes[permissaoId] = checkbox.checked;
+    });
+    
+    // Atualizar perfil
+    perfil.permissoes = novasPermissoes;
+    
+    if (SistemaStorage.atualizarPerfil(perfilId, { permissoes: novasPermissoes })) {
+        // Fechar modal
+        const modal = bootstrap.Modal.getInstance(document.getElementById('editarPermissoesModal'));
+        if (modal) modal.hide();
+        
+        // Atualizar lista de perfis
+        carregarListaPerfis();
+        
+        // Aplicar novas permissões se o usuário atual foi afetado
+        const usuarioAtual = SistemaStorage.getUsuarioAtual();
+        if (usuarioAtual && usuarioAtual.perfil_id === perfilId) {
+            aplicarPermissoesInterface();
+        }
+        
+        alert(`✅ Permissões do perfil "${perfil.nome}" atualizadas com sucesso!`);
+    } else {
+        alert('❌ Erro ao salvar permissões!');
+    }
+}
+
+// Função para verificar se usuário tem permissão para uma ação
+function temPermissao(acao) {
+    const usuario = SistemaStorage.getUsuarioAtual();
+    if (!usuario) return false;
+    
+    // Master tem todas as permissões
+    if (usuario.master) return true;
+    
+    // Obter perfil do usuário
+    const perfil = SistemaStorage.getPerfilPorId(usuario.perfil_id);
+    if (!perfil) return false;
+    
+    // Verificar permissão específica
+    return perfil.permissoes[acao] === true;
+}
+
+// Função para aplicar permissões na interface
+function aplicarPermissoesInterface() {
+    const usuario = SistemaStorage.getUsuarioAtual();
+    if (!usuario) return;
+    
+    console.log('Aplicando permissões para:', usuario.nome, 'Perfil:', SistemaStorage.getNomePerfil(usuario.perfil_id));
+    
+    // ========== CONTROLE DE FALTAS ==========
+    
+    // Botão "Nova Falta"
+    const btnNovaFalta = document.querySelector('button[onclick="mostrarModalFalta()"]');
+    if (btnNovaFalta) {
+        if (!temPermissao('registrar_falta')) {
+            btnNovaFalta.disabled = true;
+            btnNovaFalta.classList.remove('btn-success');
+            btnNovaFalta.classList.add('btn-secondary');
+            btnNovaFalta.title = 'Sem permissão para registrar faltas';
+        }
+    }
+    
+    // Botões de ação na tabela de faltas (Editar/Excluir)
+    setTimeout(() => {
+        const botoesEditarFalta = document.querySelectorAll('#faltasTableBody .btn-warning');
+        const botoesExcluirFalta = document.querySelectorAll('#faltasTableBody .btn-danger');
+        
+        if (!temPermissao('editar_falta')) {
+            botoesEditarFalta.forEach(btn => {
+                btn.disabled = true;
+                btn.classList.remove('btn-warning');
+                btn.classList.add('btn-secondary');
+            });
+        }
+        
+        if (!temPermissao('excluir_falta')) {
+            botoesExcluirFalta.forEach(btn => {
+                btn.disabled = true;
+                btn.classList.remove('btn-danger');
+                btn.classList.add('btn-secondary');
+            });
+        }
+    }, 500); // Aguardar tabela carregar
+    
+    // ========== DADOS DO DOCENTE ==========
+    
+    // Botão "Novo Docente"
+    const btnNovoDocente = document.querySelector('button[onclick="mostrarModalDocente()"]');
+    if (btnNovoDocente) {
+        if (!temPermissao('cadastrar_docente')) {
+            btnNovoDocente.disabled = true;
+            btnNovoDocente.classList.remove('btn-success');
+            btnNovoDocente.classList.add('btn-secondary');
+            btnNovoDocente.title = 'Sem permissão para cadastrar docentes';
+        }
+    }
+    
+    // ========== RELATÓRIOS E ESTATÍSTICAS ==========
+    
+    // Botão "Gerar Relatório PDF"
+    const btnGerarRelatorio = document.getElementById('gerarRelatorioPDFBtn');
+    if (btnGerarRelatorio && !temPermissao('gerar_relatorio_pdf')) {
+        btnGerarRelatorio.disabled = true;
+        btnGerarRelatorio.classList.remove('btn-success');
+        btnGerarRelatorio.classList.add('btn-secondary');
+        btnGerarRelatorio.title = 'Sem permissão para gerar relatórios';
+    }
+    
+    // ========== CONFIGURAÇÕES ==========
+    
+    // Botão "Configurações" no cabeçalho
+    const btnConfig = document.getElementById('configBtn');
+    if (btnConfig && !temPermissao('acessar_configuracoes')) {
+        btnConfig.disabled = true;
+        btnConfig.style.display = 'none'; // Esconder completamente
+    }
+    
+    // ========== ABA DE CONFIGURAÇÕES (se estiver aberta) ==========
+    
+    // Esconder abas não permitidas no modal de configurações
+    const configModal = document.getElementById('configModal');
+    if (configModal && configModal.classList.contains('show')) {
+        aplicarPermissoesConfiguracoes();
+    }
+    
+    console.log('Permissões aplicadas com sucesso!');
+}
+
+// Função para aplicar permissões no modal de configurações
+function aplicarPermissoesConfiguracoes() {
+    // Aba "Usuários" - apenas Master e Gestor podem ver
+    const tabUsuarios = document.querySelector('a[href="#tabUsuarios"]');
+    if (tabUsuarios && !temPermissao('gerenciar_usuarios')) {
+        tabUsuarios.parentElement.style.display = 'none';
+    }
+    
+    // Aba "Perfis" - apenas Master e Gestor podem ver
+    const tabPerfis = document.querySelector('a[href="#tabPerfis"]');
+    if (tabPerfis && !temPermissao('gerenciar_perfis')) {
+        tabPerfis.parentElement.style.display = 'none';
+    }
+    
+    // Aba "Logs" - apenas Master e Gestor podem ver
+    const tabLogs = document.querySelector('a[href="#tabLogs"]');
+    if (tabLogs && !temPermissao('visualizar_logs')) {
+        tabLogs.parentElement.style.display = 'none';
+    }
+}
+
+// Função para verificar permissão antes de executar ação
+function verificarPermissaoExecucao(acao, callback, mensagemErro = 'Você não tem permissão para esta ação!') {
+    if (temPermissao(acao)) {
+        callback();
+    } else {
+        alert('❌ ' + mensagemErro);
+    }
+}
+
+// Modificar funções existentes para verificar permissões
+// ========== MODIFICAÇÕES NAS FUNÇÕES EXISTENTES ==========
+
+// Substituir chamadas diretas por verificações de permissão
+window.mostrarModalDocente = function() {
+    verificarPermissaoExecucao('cadastrar_docente', function() {
+        abrirModalDocenteAvancado();
+    }, 'Você não tem permissão para cadastrar docentes!');
+};
+
+window.mostrarModalFalta = function() {
+    verificarPermissaoExecucao('registrar_falta', function() {
+        abrirModalFalta();
+    }, 'Você não tem permissão para registrar faltas!');
+};
+
+window.editarDocente = function(id) {
+    verificarPermissaoExecucao('editar_docente', function() {
+        const docente = SistemaStorage.getDocentePorId(id);
+        if (docente) {
+            abrirModalDocenteAvancado(id);
+        } else {
+            alert('❌ Docente não encontrado!');
+        }
+    }, 'Você não tem permissão para editar docentes!');
+};
+
+window.excluirDocente = function(id) {
+    verificarPermissaoExecucao('excluir_docente', function() {
+        const docente = SistemaStorage.getDocentePorId(id);
+        if (!docente) return;
+        
+        // Verificar se docente tem faltas registradas
+        if (docenteTemFaltas(id)) {
+            alert(`❌ Não é possível excluir o docente "${docente.nome}"!\n\nExistem faltas registradas para este docente. Primeiro exclua as faltas associadas.`);
+            return;
+        }
+        
+        if (confirm(`Tem certeza que deseja excluir o docente "${docente.nome}"?`)) {
+            if (SistemaStorage.removerDocente(id)) {
+                atualizarTabelaDocentes();
+                atualizarTabelaFaltas();
+                alert('✅ Docente excluído com sucesso!');
+            } else {
+                alert('❌ Erro ao excluir docente.');
+            }
+        }
+    }, 'Você não tem permissão para excluir docentes!');
+};
+
+window.editarFalta = function(id) {
+    verificarPermissaoExecucao('editar_falta', function() {
+        console.log('Editando falta ID:', id);
+        
+        const falta = SistemaStorage.faltas.find(f => f.id === id);
+        if (!falta) {
+            alert('❌ Falta não encontrada!');
+            return;
+        }
+        
+        faltaEditandoId = id;
+        
+        // ... (resto da função permanece igual)
+        
+    }, 'Você não tem permissão para editar faltas!');
+};
+
+window.excluirFalta = function(id) {
+    verificarPermissaoExecucao('excluir_falta', function() {
+        if (confirm('Tem certeza que deseja excluir este registro de falta?')) {
+            if (SistemaStorage.removerFalta(id)) {
+                atualizarTabelaFaltas();
+                atualizarEstatisticasCompletas();
+                atualizarFiltroAnos();
+                alert('✅ Falta excluída com sucesso!');
+            } else {
+                alert('❌ Erro ao excluir falta.');
+            }
+        }
+    }, 'Você não tem permissão para excluir faltas!');
+};
+
+// Modificar função salvarDocente para verificar permissões
+function salvarDocente() {
+    verificarPermissaoExecucao(docenteEditandoId ? 'editar_docente' : 'cadastrar_docente', function() {
+        // ... (código original da função salvarDocente)
+    }, docenteEditandoId ? 'Você não tem permissão para editar docentes!' : 'Você não tem permissão para cadastrar docentes!');
+}
+
+// Modificar função salvarFalta para verificar permissões
+function salvarFalta() {
+    verificarPermissaoExecucao(faltaEditandoId ? 'editar_falta' : 'registrar_falta', function() {
+        // ... (código original da função salvarFalta)
+    }, faltaEditandoId ? 'Você não tem permissão para editar faltas!' : 'Você não tem permissão para registrar faltas!');
+}
+
+// ========== ATUALIZAR INICIALIZAÇÃO ==========
+
+// Modificar a função configurarInterface() para incluir permissões
+function configurarInterface() {
+    // ... (código anterior) ...
+    
+    // Aplicar permissões na interface
+    aplicarPermissoesInterface();
+    
+    // Atualizar periodicamente para quando tabelas forem carregadas
+    setInterval(aplicarPermissoesInterface, 1000);
+}
+
+// NO app.js, ADICIONE esta função (simplificada):
+
+window.visualizarDetalhesPerfil = function(perfilId) {
+    const perfil = SistemaStorage.getPerfilPorId(perfilId);
+    if (!perfil) return;
+    
+    let permissaoCount = 0;
+    let permissaoAllowed = 0;
+    
+    Object.values(perfil.permissoes).forEach(valor => {
+        permissaoCount++;
+        if (valor) permissaoAllowed++;
+    });
+    
+    const porcentagem = Math.round((permissaoAllowed / permissaoCount) * 100);
+    
+    alert(`📊 PERFIL: ${perfil.nome}\n\n` +
+          `📝 Descrição: ${perfil.descricao}\n` +
+          `✅ Permissões ativas: ${permissaoAllowed}/${permissaoCount} (${porcentagem}%)\n` +
+          `✏️ Editável: ${perfil.editavel ? 'Sim' : 'Não'}\n` +
+          `👥 Usuários: ${SistemaStorage.usuarios.filter(u => u.perfil_id === perfilId).length}\n\n` +
+          `Clique em "Editar" para ajustar as permissões.`);
+};
+
+// ========== FUNÇÃO ATUALIZAR FILTRO DE ANOS ==========
+
+function atualizarFiltroAnos() {
+    const select = document.getElementById('filtroAno');
+    if (!select) return;
+    
+    // Extrair anos únicos das faltas
+    const anosUnicos = new Set();
+    SistemaStorage.faltas.forEach(falta => {
+        if (falta.data) {
+            const ano = new Date(falta.data).getFullYear();
+            anosUnicos.add(ano);
+        }
+    });
+    
+    // Converter para array e ordenar do mais recente
+    const anos = Array.from(anosUnicos).sort((a, b) => b - a);
+    
+    // Salvar seleção atual
+    const selecaoAtual = select.value;
+    
+    // Limpar e reconstruir opções
+    select.innerHTML = '<option value="">Todos os anos</option>';
+    
+    // Adicionar anos dinâmicos
+    anos.forEach(ano => {
+        const option = document.createElement('option');
+        option.value = ano;
+        option.textContent = ano;
+        select.appendChild(option);
+    });
+    
+    // Adicionar opção "Ano atual"
+    const anoAtual = new Date().getFullYear();
+    if (!anos.includes(anoAtual)) {
+        const optionAtual = document.createElement('option');
+        optionAtual.value = anoAtual;
+        optionAtual.textContent = `${anoAtual} (atual)`;
+        select.appendChild(optionAtual);
+    }
+    
+    // Restaurar seleção se ainda existir
+    if (selecaoAtual && Array.from(select.options).some(opt => opt.value === selecaoAtual)) {
+        select.value = selecaoAtual;
+    }
+}
+
+// ========== FUNÇÕES AUXILIARES PARA SELECTS ==========
+
+function atualizarSelectsDisciplinas() {
+    // Atualizar select no modal de falta
+    const selectFalta = document.getElementById('disciplinaSelect');
+    if (selectFalta) {
+        const selectedValue = selectFalta.value;
+        selectFalta.innerHTML = '<option value="">Selecione uma disciplina</option>';
+        
+        SistemaStorage.getDisciplinasOrdenadas().forEach(disciplina => {
+            const option = document.createElement('option');
+            option.value = disciplina;
+            option.textContent = disciplina;
+            selectFalta.appendChild(option);
+        });
+        
+        // Restaurar seleção se ainda existir
+        if (selectedValue && SistemaStorage.disciplinas.includes(selectedValue)) {
+            selectFalta.value = selectedValue;
+        }
+    }
+}
+
+function atualizarSelectsCursos() {
+    // Atualizar select no modal de falta
+    const selectFalta = document.getElementById('cursoSelect');
+    if (selectFalta) {
+        const selectedValue = selectFalta.value;
+        selectFalta.innerHTML = '<option value="">Selecione um curso</option>';
+        
+        SistemaStorage.getCursosOrdenados().forEach(curso => {
+            const option = document.createElement('option');
+            option.value = curso;
+            option.textContent = curso;
+            selectFalta.appendChild(option);
+        });
+        
+        // Restaurar seleção se ainda existir
+        if (selectedValue && SistemaStorage.cursos.includes(selectedValue)) {
+            selectFalta.value = selectedValue;
+        }
+    }
+}
+
+function atualizarSelectsJustificativas() {
+    const selectFalta = document.getElementById('justificativaSelect');
+    if (selectFalta) {
+        const selectedValue = selectFalta.value;
+        selectFalta.innerHTML = '<option value="">Selecione uma justificativa</option>';
+        
+        SistemaStorage.getJustificativasOrdenadas().forEach(justificativa => {
+            const option = document.createElement('option');
+            option.value = justificativa;
+            option.textContent = justificativa;
+            selectFalta.appendChild(option);
+        });
+        
+        if (selectedValue && SistemaStorage.justificativas.includes(selectedValue)) {
+            selectFalta.value = selectedValue;
+        }
+    }
+}
+
 function configurarInterface() {
     // Configurar datas
     const hoje = new Date();
@@ -188,7 +844,7 @@ function configurarInterface() {
     carregarResumoFaltasPorDocente(); // Carrega sem filtro inicialmente
     
     // Atualizar filtro de anos dinamicamente
-    atualizarFiltroAnos();
+    atualizarFiltroAnos(); // ← ESTA LINHA DEVE ESTAR AQUI
     
     // Definir filtro "Todos" como ativo inicialmente
     setFiltroAtivo('todos');
@@ -244,6 +900,27 @@ function configurarEventos() {
     document.getElementById('buscaDisciplina')?.addEventListener('input', filtrarDisciplinas);
     document.getElementById('buscaCurso')?.addEventListener('input', filtrarCursos);
     document.getElementById('buscaJustificativaConfig')?.addEventListener('input', filtrarJustificativasConfig);
+
+    // Preencher filtro de usuários nos logs
+    const filtroLogUsuario = document.getElementById('filtroLogUsuario');
+    if (filtroLogUsuario) {
+        // Adicionar opção "Todos"
+        filtroLogUsuario.innerHTML = '<option value="">Todos os usuários</option>';
+        
+        // Adicionar usuários
+        SistemaStorage.usuarios.forEach(usuario => {
+            const option = document.createElement('option');
+            option.value = usuario.id;
+            option.textContent = usuario.nome;
+            filtroLogUsuario.appendChild(option);
+        });
+    }
+    
+    // Botão aplicar filtro de logs
+    const btnAplicarFiltroLogs = document.getElementById('btnAplicarFiltroLogs');
+    if (btnAplicarFiltroLogs) {
+        btnAplicarFiltroLogs.addEventListener('click', carregarLogs);
+    }
     
     // ========== FILTROS DE DOCENTES ==========
     
@@ -296,6 +973,364 @@ function configurarEventos() {
     });
     
     console.log('Eventos configurados com sucesso!');
+
+    // ========== NOVOS EVENTOS PARA GERENCIAMENTO DE USUÁRIOS ==========
+    
+     // ========== NOVOS EVENTOS ==========
+    
+    // Botão Novo Usuário (COM VERIFICAÇÃO DE EXISTÊNCIA)
+    const btnNovoUsuario = document.getElementById('btnNovoUsuario');
+    if (btnNovoUsuario) {
+        btnNovoUsuario.addEventListener('click', function() {
+            if (!temPermissao('gerenciar_usuarios')) {
+                alert('❌ Você não tem permissão para gerenciar usuários!');
+                return;
+            }
+            
+            usuarioEditandoId = null;
+            abrirModalUsuario();
+        });
+    }
+    
+    // Botão salvar usuário
+    const salvarUsuarioBtn = document.getElementById('salvarUsuarioBtn');
+    if (salvarUsuarioBtn) {
+        salvarUsuarioBtn.addEventListener('click', salvarUsuario);
+    }
+    
+    // Busca de usuários
+    const buscaUsuario = document.getElementById('buscaUsuario');
+    if (buscaUsuario) {
+        buscaUsuario.addEventListener('input', filtrarUsuarios);
+    }
+    
+    // ========== ATUALIZAR OBSERVADOR DE ABAS ==========
+    configurarObservadorAbas();
+}
+
+// ========== FUNÇÕES PARA GERENCIAMENTO DE USUÁRIOS ==========
+
+window.editarUsuario = function(id) {
+    if (!temPermissao('editar_usuario')) {
+        alert('❌ Você não tem permissão para editar usuários!');
+        return;
+    }
+    
+    const usuario = SistemaStorage.getUsuarioPorId(id);
+    if (usuario) {
+        usuarioEditandoId = id;
+        abrirModalUsuario(id);
+    } else {
+        alert('❌ Usuário não encontrado!');
+    }
+};
+
+window.excluirUsuario = function(id) {
+    if (!temPermissao('gerenciar_usuarios')) {
+        alert('❌ Você não tem permissão para excluir usuários!');
+        return;
+    }
+    
+    const usuario = SistemaStorage.getUsuarioPorId(id);
+    if (!usuario) return;
+    
+    // Verificar se pode excluir
+    if (!SistemaStorage.usuarioPodeSerExcluido(id)) {
+        alert(`❌ Não é possível excluir o usuário "${usuario.nome}"!\n\nEste usuário tem registros associados no sistema.`);
+        return;
+    }
+    
+    if (confirm(`Tem certeza que deseja excluir o usuário "${usuario.nome}"?\n\nCPF: ${usuario.cpf}\n\nEsta ação não poderá ser desfeita.`)) {
+        if (SistemaStorage.removerUsuario(id)) {
+            carregarListaUsuarios();
+            alert('✅ Usuário excluído com sucesso!');
+        } else {
+            alert('❌ Erro ao excluir usuário.');
+        }
+    }
+};
+
+// NO app.js, LOCALIZE a função abrirModalUsuario e SUBSTITUA por:
+
+function abrirModalUsuario(id = null) {
+    usuarioEditandoId = id; // AGORA ESTA VARIÁVEL ESTÁ DEFINIDA
+    
+    const modalTitle = document.getElementById('usuarioModalTitle');
+    const usuarioForm = document.getElementById('usuarioForm');
+    const gerarSenhaBtn = document.getElementById('gerarSenhaBtn');
+    const senhaContainer = document.getElementById('senhaGeradaContainer');
+    
+    // Resetar formulário
+    if (usuarioForm) usuarioForm.reset();
+    if (senhaContainer) senhaContainer.style.display = 'none';
+    
+    // Carregar perfis no select (APENAS OS 4 PRÉ-DEFINIDOS)
+    const perfilSelect = document.getElementById('usuarioPerfil');
+    if (perfilSelect) {
+        perfilSelect.innerHTML = '<option value="">Selecione um perfil</option>';
+        
+        // APENAS OS PERFIS PRÉ-DEFINIDOS (exceto Master para novos usuários)
+        SistemaStorage.perfis
+            .filter(p => p.predefinido && p.nome !== 'Master')
+            .forEach(perfil => {
+                const option = document.createElement('option');
+                option.value = perfil.id;
+                option.textContent = perfil.nome;
+                perfilSelect.appendChild(option);
+            });
+    }
+    
+    // Se for edição, carregar dados
+    if (id) {
+        const usuario = SistemaStorage.getUsuarioPorId(id);
+        if (usuario) {
+            modalTitle.textContent = 'Editar Usuário';
+            
+            document.getElementById('usuarioNome').value = usuario.nome;
+            document.getElementById('usuarioCPF').value = usuario.cpf;
+            document.getElementById('usuarioEmail').value = usuario.email || '';
+            document.getElementById('usuarioPerfil').value = usuario.perfil_id;
+            document.getElementById('usuarioAtivo').checked = usuario.ativo !== false;
+            
+            // Ocultar campos de senha para edição
+            document.getElementById('usuarioSenha').parentElement.style.display = 'none';
+            document.getElementById('usuarioConfirmarSenha').parentElement.style.display = 'none';
+            
+            // Mostrar botão de gerar nova senha (se não for Master)
+            if (gerarSenhaBtn && !usuario.master) {
+                gerarSenhaBtn.style.display = 'inline-block';
+                gerarSenhaBtn.onclick = function() {
+                    gerarNovaSenhaUsuario(id);
+                };
+            } else {
+                gerarSenhaBtn.style.display = 'none';
+            }
+        }
+    } else {
+        modalTitle.textContent = 'Cadastrar Usuário';
+        
+        // Mostrar campos de senha para novo usuário
+        document.getElementById('usuarioSenha').parentElement.style.display = 'block';
+        document.getElementById('usuarioConfirmarSenha').parentElement.style.display = 'block';
+        
+        // Ocultar botão de gerar nova senha (não faz sentido para novo usuário)
+        if (gerarSenhaBtn) gerarSenhaBtn.style.display = 'none';
+    }
+    
+    // Configurar máscara de CPF
+    const cpfInput = document.getElementById('usuarioCPF');
+    if (cpfInput) {
+        cpfInput.addEventListener('input', function(e) {
+            let value = e.target.value.replace(/\D/g, '');
+            
+            if (value.length > 3) {
+                value = value.replace(/^(\d{3})(\d)/, '$1.$2');
+            }
+            if (value.length > 6) {
+                value = value.replace(/^(\d{3})\.(\d{3})(\d)/, '$1.$2.$3');
+            }
+            if (value.length > 9) {
+                value = value.replace(/^(\d{3})\.(\d{3})\.(\d{3})(\d)/, '$1.$2.$3-$4');
+            }
+            if (value.length > 11) {
+                value = value.substring(0, 14);
+            }
+            
+            e.target.value = value;
+        });
+    }
+    
+    // Mostrar modal
+    const modalElement = document.getElementById('addUsuarioModal');
+    if (modalElement) {
+        const modal = new bootstrap.Modal(modalElement);
+        modal.show();
+    }
+}
+
+// ========== FUNÇÃO CARREGAR LISTA DE USUÁRIOS ==========
+
+function carregarListaUsuarios() {
+    const lista = document.getElementById('listaUsuarios');
+    if (!lista) {
+        console.log('Elemento #listaUsuarios não encontrado');
+        return;
+    }
+    
+    lista.innerHTML = '';
+    
+    // Obter usuários (exceto Master para a lista)
+    const usuarios = SistemaStorage.usuarios.filter(u => !u.master);
+    
+    if (usuarios.length === 0) {
+        lista.innerHTML = `
+            <div class="list-group-item text-center text-muted py-4">
+                <i class="fas fa-users fa-2x mb-2"></i>
+                <p class="mb-0">Nenhum usuário cadastrado</p>
+                <small>Clique em "Novo Usuário" para adicionar</small>
+            </div>
+        `;
+        return;
+    }
+    
+    // Ordenar por nome
+    const usuariosOrdenados = [...usuarios].sort((a, b) => 
+        a.nome.localeCompare(b.nome)
+    );
+    
+    usuariosOrdenados.forEach(usuario => {
+        const perfil = SistemaStorage.getPerfilPorId(usuario.perfil_id);
+        const perfilNome = perfil ? perfil.nome : 'Desconhecido';
+        
+        const item = document.createElement('div');
+        item.className = 'list-group-item d-flex justify-content-between align-items-center';
+        item.innerHTML = `
+            <div class="flex-grow-1">
+                <div class="d-flex justify-content-between align-items-start">
+                    <div>
+                        <h6 class="mb-1">${usuario.nome}</h6>
+                        <div class="small text-muted">
+                            <i class="fas fa-id-card me-1"></i> ${usuario.cpf}
+                            ${usuario.email ? `<br><i class="fas fa-envelope me-1"></i> ${usuario.email}` : ''}
+                        </div>
+                    </div>
+                    <div class="text-end">
+                        <span class="badge ${usuario.ativo ? 'bg-success' : 'bg-secondary'} mb-1">
+                            ${usuario.ativo ? 'Ativo' : 'Inativo'}
+                        </span>
+                        <br>
+                        <small class="text-muted">${perfilNome}</small>
+                    </div>
+                </div>
+                <div class="small text-muted mt-2">
+                    <i class="fas fa-calendar me-1"></i> Cadastrado em: ${usuario.data_cadastro}
+                    ${usuario.ultimo_login ? `<br><i class="fas fa-sign-in-alt me-1"></i> Último login: ${new Date(usuario.ultimo_login).toLocaleString('pt-BR')}` : ''}
+                </div>
+            </div>
+            <div class="btn-group ms-3" role="group">
+                <button class="btn btn-warning btn-sm me-1" onclick="editarUsuario(${usuario.id})"
+                        ${!temPermissao('editar_usuario') ? 'disabled' : ''}>
+                    <i class="fas fa-edit"></i>
+                </button>
+                <button class="btn btn-danger btn-sm" onclick="excluirUsuario(${usuario.id})"
+                        ${!temPermissao('gerenciar_usuarios') ? 'disabled' : ''}>
+                    <i class="fas fa-trash"></i>
+                </button>
+            </div>
+        `;
+        lista.appendChild(item);
+    });
+}
+
+// ========== FUNÇÃO PARA LIMPAR MODAL DE CONFIGURAÇÕES ==========
+
+function limparModalConfiguracoes() {
+    console.log('🧹 Limpando modal de configurações...');
+    
+    // Limpar busca dos inputs (apenas isso, não limpar as listas inteiras)
+    const buscaInputs = [
+        'buscaDisciplina', 
+        'buscaCurso', 
+        'buscaJustificativaConfig',
+        'buscaUsuario'
+    ];
+    
+    buscaInputs.forEach(id => {
+        const input = document.getElementById(id);
+        if (input) input.value = '';
+    });
+    
+    // NÃO limpar as listas - elas serão recarregadas quando abrir novamente
+    // Isso evita que os dados sumam visualmente
+    
+    console.log('✅ Modal limpo!');
+}
+
+// ========== FUNÇÃO CARREGAR LOGS ==========
+
+function carregarLogs() {
+    const tabela = document.getElementById('tabelaLogs');
+    const contador = document.getElementById('contadorLogs');
+    if (!tabela) return;
+    
+    tabela.innerHTML = '';
+    
+    // Obter filtros
+    const filtroUsuario = document.getElementById('filtroLogUsuario')?.value || '';
+    const filtroPerfil = document.getElementById('filtroLogPerfil')?.value || '';
+    const filtroModulo = document.getElementById('filtroLogModulo')?.value || '';
+    const filtroPeriodo = document.getElementById('filtroLogPeriodo')?.value || '30dias';
+    
+    // Aplicar filtros básicos
+    let logsFiltrados = [...SistemaStorage.logs];
+    
+    // Filtrar por período
+    if (filtroPeriodo !== 'todos') {
+        const hoje = new Date();
+        let dataLimite = new Date();
+        
+        switch(filtroPeriodo) {
+            case 'hoje':
+                dataLimite.setHours(0, 0, 0, 0);
+                break;
+            case 'ontem':
+                dataLimite.setDate(hoje.getDate() - 1);
+                dataLimite.setHours(0, 0, 0, 0);
+                break;
+            case '30dias':
+                dataLimite.setDate(hoje.getDate() - 30);
+                break;
+        }
+        
+        logsFiltrados = logsFiltrados.filter(log => {
+            const dataLog = new Date(log.data);
+            return dataLog >= dataLimite;
+        });
+    }
+    
+    // Filtrar por perfil
+    if (filtroPerfil) {
+        logsFiltrados = logsFiltrados.filter(log => log.usuario_perfil === filtroPerfil);
+    }
+    
+    // Filtrar por módulo
+    if (filtroModulo) {
+        logsFiltrados = logsFiltrados.filter(log => log.modulo === filtroModulo);
+    }
+    
+    if (logsFiltrados.length === 0) {
+        tabela.innerHTML = `
+            <tr>
+                <td colspan="7" class="text-center text-muted py-4">
+                    <i class="fas fa-search fa-2x mb-2"></i>
+                    <p class="mb-0">Nenhum registro encontrado</p>
+                </td>
+            </tr>
+        `;
+        if (contador) contador.textContent = '0';
+        return;
+    }
+    
+    // Mostrar logs (limitado a 100 para performance)
+    const logsLimitados = logsFiltrados.slice(0, 100);
+    
+    logsLimitados.forEach(log => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+            <td>${log.data}</td>
+            <td>${log.usuario_nome}</td>
+            <td><span class="badge bg-info">${log.usuario_perfil}</span></td>
+            <td>${log.modulo}</td>
+            <td><span class="badge bg-secondary">${log.acao}</span></td>
+            <td><small class="text-muted">${log.detalhes}</small></td>
+            <td><code>${log.ip}</code></td>
+        `;
+        tabela.appendChild(tr);
+    });
+    
+    if (contador) {
+        contador.textContent = logsLimitados.length;
+    }
 }
 
 // Configurar observador de abas
@@ -307,14 +1342,32 @@ function configurarObservadorAbas() {
             console.log('Aba aberta:', targetTab);
             
             setTimeout(() => {
-                if (targetTab === '#justificativas') {
-                    console.log('Carregando justificativas...');
-                    carregarJustificativas();
-                } else if (targetTab === '#controle') {
-                    console.log('Carregando estatísticas...');
-                    atualizarEstatisticasCompletas();
-                    // Adicione esta linha:
-                    carregarResumoFaltasPorDocente();
+                switch(targetTab) {
+                    case '#justificativas':
+                        console.log('Carregando justificativas...');
+                        carregarJustificativas();
+                        break;
+                        
+                    case '#controle':
+                        console.log('Carregando estatísticas...');
+                        atualizarEstatisticasCompletas();
+                        carregarResumoFaltasPorDocente();
+                        break;
+                        
+                    case '#tabUsuarios':
+                        console.log('Carregando usuários...');
+                        carregarListaUsuarios();
+                        break;
+                        
+                    case '#tabPerfis':
+                        console.log('Carregando perfis...');
+                        carregarListaPerfis();
+                        break;
+                        
+                    case '#tabLogs':
+                        console.log('Carregando logs...');
+                        carregarLogs();
+                        break;
                 }
             }, 100);
         });
@@ -323,29 +1376,105 @@ function configurarObservadorAbas() {
 
 // ========== FUNÇÕES DE NAVEGAÇÃO ==========
 
-// Modal Docente
-window.mostrarModalDocente = function() {
-    abrirModalDocenteAvancado();
-};
-
-// Modal Falta
-window.mostrarModalFalta = function() {
-    abrirModalFalta();
-};
-
 // Modal Configurações
+
 function mostrarModalConfiguracoes() {
-    // Carregar listas antes de abrir
+    console.log('🔧 Abrindo modal de configurações...');
+    
+    // Carregar TODAS as listas
     carregarListaDisciplinas();
     carregarListaCursos();
     carregarListaJustificativasConfig();
+    carregarListaUsuarios(); 
+    carregarListaPerfis();   
+    
+    // Aplicar permissões
+    aplicarPermissoesConfiguracoes();
     
     // Mostrar modal
     const modalElement = document.getElementById('configModal');
     if (modalElement) {
-        const modal = new bootstrap.Modal(modalElement);
+        // --- CORREÇÃO: Remover event listeners antigos de forma segura ---
+        
+        // Criar uma nova referência do modal (sem clonar o elemento todo)
+        const modal = new bootstrap.Modal(modalElement, {
+            backdrop: 'static',
+            keyboard: true
+        });
+        
+        // Remover listeners antigos (se existirem)
+        modalElement.removeEventListener('hidden.bs.modal', limparModalConfiguracoes);
+        
+        // Adicionar listener NOVO e CORRETO
+        modalElement.addEventListener('hidden.bs.modal', function() {
+            console.log('Modal fechado, limpando...');
+            
+            // 1. Remover foco de qualquer elemento ativo
+            if (document.activeElement) {
+                document.activeElement.blur();
+            }
+            
+            // 2. Remover backdrops que possam ter ficado
+            const backdrops = document.querySelectorAll('.modal-backdrop');
+            backdrops.forEach(backdrop => backdrop.remove());
+            
+            // 3. Restaurar body
+            document.body.classList.remove('modal-open');
+            document.body.style.overflow = '';
+            document.body.style.paddingRight = '';
+            
+            // 4. Remover aria-hidden
+            modalElement.removeAttribute('aria-hidden');
+            
+            // 5. Limpar os dados (com delay para garantir)
+            setTimeout(() => {
+                limparModalConfiguracoes();
+            }, 100);
+        });
+        
+        // Mostrar o modal
         modal.show();
+        
+        // Garantir que a primeira aba visível seja ativada
+        setTimeout(() => {
+            const primeiraTab = document.querySelector('#configTabs .nav-link:not([style*="display: none"])');
+            if (primeiraTab) {
+                primeiraTab.click();
+            }
+        }, 200);
+        
+    } else {
+        console.error('❌ Modal de configurações não encontrado!');
+        alert('Erro ao abrir configurações. Recarregue a página.');
     }
+}
+
+// Função auxiliar para configurar abas
+function configurarTabsConfig() {
+    const tabs = document.querySelectorAll('#configTabs .nav-link');
+    tabs.forEach(tab => {
+        tab.addEventListener('click', function(e) {
+            e.preventDefault();
+            const target = this.getAttribute('href');
+            
+            // Remover active de todas
+            tabs.forEach(t => t.classList.remove('active'));
+            
+            // Adicionar active na clicada
+            this.classList.add('active');
+            
+            // Esconder todos os painéis
+            document.querySelectorAll('#configModal .tab-pane').forEach(pane => {
+                pane.classList.remove('show', 'active');
+            });
+            
+            // Mostrar o painel alvo
+            const targetPane = document.querySelector(target);
+            if (targetPane) {
+                targetPane.classList.add('show', 'active');
+            }
+        });
+    });
 }
 
 // ========== FUNÇÕES DE TABELA ==========
@@ -479,6 +1608,8 @@ function atualizarContadorDocentes(mostrando, total) {
     }
 }
 
+// ========== FUNÇÃO ATUALIZAR TABELA DE FALTAS ==========
+
 function atualizarTabelaFaltas() {
     const tbody = document.getElementById('faltasTableBody');
     if (!tbody) return;
@@ -500,10 +1631,12 @@ function atualizarTabelaFaltas() {
         return;
     }
     
-    // Ordenar por data (mais recente primeiro)
-    const faltasOrdenadas = [...faltas].sort((a, b) => 
-        new Date(b.data) - new Date(a.data)
-    );
+    // Ordenar por data (mais recente primeiro) - USANDO DATA CORRIGIDA
+    const faltasOrdenadas = [...faltas].sort((a, b) => {
+        const dataA = corrigirData(a.data);
+        const dataB = corrigirData(b.data);
+        return dataB - dataA;
+    });
     
     // Aplicar filtros
     const mesFiltro = document.getElementById('filtroMes')?.value;
@@ -511,14 +1644,17 @@ function atualizarTabelaFaltas() {
     const docenteFiltro = document.getElementById('filtroDocente')?.value;
     
     faltasOrdenadas.forEach(falta => {
+        // USAR DATA CORRIGIDA PARA FILTROS
+        const dataFalta = corrigirData(falta.data);
+        
         // Verificar filtros
         if (mesFiltro) {
-            const mes = new Date(falta.data).getMonth() + 1;
+            const mes = dataFalta.getMonth() + 1;
             if (mes.toString().padStart(2, '0') !== mesFiltro) return;
         }
         
         if (anoFiltro) {
-            const ano = new Date(falta.data).getFullYear();
+            const ano = dataFalta.getFullYear();
             if (ano.toString() !== anoFiltro) return;
         }
         
@@ -534,7 +1670,7 @@ function atualizarTabelaFaltas() {
             <td>${docente.nome}</td>
             <td>${falta.disciplina}</td>
             <td>${falta.curso}</td>
-            <td>${formatarData(falta.data)}</td>
+            <td>${formatarDataCorreta(falta.data)}</td>
             <td>${falta.horarioInicio}</td>
             <td>${falta.horarioFim}</td>
             <td>${falta.quantidadeFaltas}</td>
@@ -561,9 +1697,7 @@ function atualizarTabelaFaltas() {
 // ========== FUNÇÕES AUXILIARES ==========
 
 function formatarData(dataString) {
-    if (!dataString) return '';
-    const data = new Date(dataString);
-    return data.toLocaleDateString('pt-BR');
+    return formatarDataCorreta(dataString);
 }
 
 // Função para definir botão de filtro ativo
@@ -739,78 +1873,134 @@ function atualizarEstatisticasCompletas() {
     `;
 }
 
+// ========== FUNÇÃO APLICAR FILTRO ESTATÍSTICAS ==========
+
 function aplicarFiltroEstatisticas() {
-    console.log('Aplicando filtro de estatísticas...');
+    console.log('📊 Aplicando filtro de estatísticas...');
     
     const dataInicio = document.getElementById('dataInicio')?.value;
     const dataFim = document.getElementById('dataFim')?.value;
     
+    console.log('Datas selecionadas (raw):', { dataInicio, dataFim });
+    console.log('Datas corrigidas:', { 
+        dataInicio: dataInicio ? formatarDataCorreta(dataInicio) : null,
+        dataFim: dataFim ? formatarDataCorreta(dataFim) : null 
+    });
+    
     // Se não houver datas, usar todos os dados
     if (!dataInicio && !dataFim) {
         atualizarEstatisticasCompletas();
-        alert('📊 Exibindo todas as estatísticas (sem filtro de data)');
+        carregarResumoFaltasPorDocente(false);
         return;
     }
     
     // Validar datas
-    if (dataInicio && dataFim && dataInicio > dataFim) {
-        alert('❌ Data de início não pode ser maior que data de fim!');
-        return;
+    if (dataInicio && dataFim) {
+        const inicio = corrigirData(dataInicio);
+        const fim = corrigirData(dataFim);
+        if (inicio > fim) {
+            alert('❌ Data de início não pode ser maior que data de fim!');
+            return;
+        }
     }
     
-    // Filtrar faltas por data
-    const faltasFiltradas = SistemaStorage.faltas.filter(falta => {
-        if (!falta.data) return false;
-        
-        const dataFalta = new Date(falta.data);
-        
-        if (dataInicio && dataFim) {
-            const inicio = new Date(dataInicio);
-            const fim = new Date(dataFim);
-            return dataFalta >= inicio && dataFalta <= fim;
-        } else if (dataInicio) {
-            const inicio = new Date(dataInicio);
-            return dataFalta >= inicio;
-        } else if (dataFim) {
-            const fim = new Date(dataFim);
-            return dataFalta <= fim;
-        }
-        
-        return true;
-    });
+    // Filtrar faltas por data usando a função corrigida
+    const faltasFiltradas = getFaltasFiltradasPorPeriodo(dataInicio, dataFim);
+    
+    console.log('Total de faltas no período:', faltasFiltradas.length);
     
     // Calcular estatísticas filtradas
     const totalDocentes = SistemaStorage.docentes.length;
-    const totalFaltas = faltasFiltradas.reduce((sum, f) => sum + f.quantidadeFaltas, 0);
+    const docentesAtivos = SistemaStorage.docentes.filter(d => d.ativo !== false).length;
+    const totalFaltas = faltasFiltradas.reduce((sum, f) => sum + (f.quantidadeFaltas || 0), 0);
     const faltasJustificadas = faltasFiltradas
         .filter(f => f.justificada)
-        .reduce((sum, f) => sum + f.quantidadeFaltas, 0);
+        .reduce((sum, f) => sum + (f.quantidadeFaltas || 0), 0);
+    const faltasNaoJustificadas = totalFaltas - faltasJustificadas;
     
+    // Formatar período para exibição (USANDO A FUNÇÃO CORRIGIDA)
+    let periodoTexto = '';
+    if (dataInicio && dataFim) {
+        periodoTexto = `${formatarDataCorreta(dataInicio)} a ${formatarDataCorreta(dataFim)}`;
+    } else if (dataInicio) {
+        periodoTexto = `a partir de ${formatarDataCorreta(dataInicio)}`;
+    } else if (dataFim) {
+        periodoTexto = `até ${formatarDataCorreta(dataFim)}`;
+    }
+    
+    // Atualizar estatísticas na interface
     const container = document.getElementById('estatisticas');
     if (container) {
         container.innerHTML = `
-            <div class="alert alert-info">
+            <div class="alert alert-info mb-3">
                 <i class="fas fa-filter me-2"></i>
-                <strong>Estatísticas Filtradas:</strong>
-                ${dataInicio ? `De ${formatarData(dataInicio)}` : ''}
-                ${dataFim ? `até ${formatarData(dataFim)}` : ''}
+                <strong>Período filtrado:</strong> ${periodoTexto}
+                <span class="badge bg-primary ms-2">${faltasFiltradas.length} registro(s)</span>
             </div>
-            <p><strong>Total de Docentes:</strong> ${totalDocentes}</p>
-            <p><strong>Total de Faltas (no período):</strong> ${totalFaltas}</p>
-            <p><strong>Faltas Justificadas:</strong> ${faltasJustificadas}</p>
-            <p><strong>Faltas Não Justificadas:</strong> ${totalFaltas - faltasJustificadas}</p>
-            <hr>
-            <small class="text-muted">
-                <i class="fas fa-info-circle me-1"></i>
-                ${faltasFiltradas.length} registro(s) encontrado(s)
-            </small>
+            
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="card mb-3">
+                        <div class="card-body">
+                            <h6 class="card-title">📊 Estatísticas Gerais</h6>
+                            <div class="d-flex justify-content-between mb-2">
+                                <span>Total de Docentes:</span>
+                                <strong>${totalDocentes}</strong>
+                            </div>
+                            <div class="d-flex justify-content-between mb-2">
+                                <span>Docentes Ativos:</span>
+                                <strong class="text-success">${docentesAtivos}</strong>
+                            </div>
+                            <div class="d-flex justify-content-between mb-2">
+                                <span>Docentes Inativos:</span>
+                                <strong class="text-secondary">${totalDocentes - docentesAtivos}</strong>
+                            </div>
+                            <hr>
+                            <div class="d-flex justify-content-between mb-2">
+                                <span>Total de Faltas (no período):</span>
+                                <strong>${totalFaltas}</strong>
+                            </div>
+                            <div class="d-flex justify-content-between mb-2">
+                                <span>Faltas Justificadas:</span>
+                                <strong class="text-success">${faltasJustificadas}</strong>
+                            </div>
+                            <div class="d-flex justify-content-between">
+                                <span>Faltas Não Justificadas:</span>
+                                <strong class="text-danger">${faltasNaoJustificadas}</strong>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="col-md-6">
+                    <div class="card mb-3">
+                        <div class="card-body">
+                            <h6 class="card-title">📈 Percentual de Justificativas</h6>
+                            <div class="text-center mb-3">
+                                <div style="font-size: 3rem; font-weight: bold; color: ${totalFaltas > 0 ? '#28a745' : '#6c757d'}">
+                                    ${totalFaltas > 0 ? Math.round((faltasJustificadas / totalFaltas) * 100) : 0}%
+                                </div>
+                                <small class="text-muted">das faltas são justificadas</small>
+                            </div>
+                            <div class="progress" style="height: 30px;">
+                                <div class="progress-bar bg-success" role="progressbar" 
+                                     style="width: ${totalFaltas > 0 ? (faltasJustificadas / totalFaltas) * 100 : 0}%">
+                                    Justificadas
+                                </div>
+                                <div class="progress-bar bg-danger" role="progressbar" 
+                                     style="width: ${totalFaltas > 0 ? (faltasNaoJustificadas / totalFaltas) * 100 : 0}%">
+                                    Não Justificadas
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
         `;
     }
-    // Carregar resumo de faltas por docente com filtro
-
-    carregarResumoFaltasPorDocente(true);
     
-   // alert('📊 Filtro aplicado às estatísticas e à tabela de resumo!');
+    // Atualizar resumo de faltas por docente com os dados filtrados
+    carregarResumoFaltasPorDocente(true, faltasFiltradas);
 }
 
 // ========== FUNÇÕES DE DOCENTE ==========
@@ -1056,6 +2246,8 @@ window.removerCursoDocente = function(index) {
 };
 
 // Função para salvar docente
+// NO app.js, NA FUNÇÃO salvarDocente, ADICIONE esta correção:
+
 function salvarDocente() {
     console.log('Executando salvarDocente()...', { editando: docenteEditandoId });
     
@@ -1077,15 +2269,12 @@ function salvarDocente() {
         const input = item.querySelector('.nova-disciplina-input');
         
         if (select && select.value === 'nova_disciplina' && input && input.value.trim()) {
-            // Nova disciplina digitada
             disciplinas.push(input.value.trim());
         } else if (select && select.value && select.value !== 'nova_disciplina') {
-            // Disciplina selecionada da lista
             disciplinas.push(select.value);
         }
     });
     
-    // VALIDAÇÃO DE DISCIPLINAS
     if (disciplinas.length === 0) {
         alert('❌ O docente deve ter pelo menos uma disciplina!');
         return;
@@ -1099,42 +2288,32 @@ function salvarDocente() {
         const input = item.querySelector('.novo-curso-input');
         
         if (select && select.value === 'novo_curso' && input && input.value.trim()) {
-            // Novo curso digitado
             cursos.push(input.value.trim());
         } else if (select && select.value && select.value !== 'novo_curso') {
-            // Curso selecionado da lista
             cursos.push(select.value);
         }
     });
     
-    // VALIDAÇÃO DE CURSOS
     if (cursos.length === 0) {
         alert('❌ O docente deve ter pelo menos um curso!');
         return;
     }
     
-    // Criar objeto docente COM CAMPO ATIVO
     const dadosDocente = {
         nome: nome,
         disciplinas: disciplinas,
         cursos: cursos,
         aulas: aulas,
-        ativo: ativo !== false // true se marcado, false se desmarcado
+        ativo: ativo !== false
     };
     
     console.log('Dados do docente a salvar:', dadosDocente);
     
-    // SALVAR OU ATUALIZAR
     let resultado = false;
     
     if (docenteEditandoId) {
-        // EDITAR DOCENTE EXISTENTE
         resultado = SistemaStorage.atualizarDocente(docenteEditandoId, dadosDocente);
-        if (resultado) {
-           // alert(`✅ Docente "${nome}" atualizado com sucesso!`);
-        }
     } else {
-        // NOVO DOCENTE
         const id = SistemaStorage.adicionarDocente(dadosDocente);
         resultado = !!id;
         if (resultado) {
@@ -1143,9 +2322,23 @@ function salvarDocente() {
     }
     
     if (resultado) {
+        // ANTES DE FECHAR, REMOVER O FOCO DO BOTÃO
+        const botaoAtivo = document.activeElement;
+        if (botaoAtivo) {
+            botaoAtivo.blur(); // Remove o foco do botão
+        }
+        
         // Fechar modal
-        const modal = bootstrap.Modal.getInstance(document.getElementById('addDocenteModal'));
-        if (modal) modal.hide();
+        const modalElement = document.getElementById('addDocenteModal');
+        const modal = bootstrap.Modal.getInstance(modalElement);
+        if (modal) {
+            modal.hide();
+            
+            // Limpar o atributo aria-hidden após o modal fechar
+            setTimeout(() => {
+                modalElement.removeAttribute('aria-hidden');
+            }, 300);
+        }
         
         // Atualizar interface
         atualizarTabelaDocentes();
@@ -1706,7 +2899,9 @@ function salvarCurso() {
     }
 }
 
-function carregarResumoFaltasPorDocente(usarFiltro = false) {
+// ========== FUNÇÃO CARREGAR RESUMO DE FALTAS POR DOCENTE ==========
+
+function carregarResumoFaltasPorDocente(usarFiltro = false, faltasFiltradas = null) {
     const tbody = document.getElementById('tabelaResumoFaltas');
     if (!tbody) return;
     
@@ -1715,7 +2910,9 @@ function carregarResumoFaltasPorDocente(usarFiltro = false) {
     // OBTER DADOS FILTRADOS OU TODOS
     let faltasParaAnalise = [];
     
-    if (usarFiltro && filtroAtivo()) {
+    if (usarFiltro && faltasFiltradas) {
+        faltasParaAnalise = faltasFiltradas;
+    } else if (usarFiltro && filtroAtivo()) {
         const { dataInicio, dataFim } = getDatasFiltroAtual();
         faltasParaAnalise = getFaltasFiltradasPorPeriodo(dataInicio, dataFim);
     } else {
@@ -1725,13 +2922,12 @@ function carregarResumoFaltasPorDocente(usarFiltro = false) {
     // FILTRAR APENAS DOCENTES ATIVOS
     const docentesAtivos = SistemaStorage.docentes.filter(docente => docente.ativo !== false);
     
-    // Verificar se há dados para mostrar
     if (docentesAtivos.length === 0) {
         tbody.innerHTML = `
             <tr>
                 <td colspan="5" class="text-center text-muted py-3">
                     <i class="fas fa-user-slash me-2"></i>
-                    Nenhum docente ativo encontrado no sistema
+                    Nenhum docente ativo encontrado
                 </td>
             </tr>
         `;
@@ -1743,106 +2939,50 @@ function carregarResumoFaltasPorDocente(usarFiltro = false) {
             <tr>
                 <td colspan="5" class="text-center text-muted py-3">
                     <i class="fas fa-search me-2"></i>
-                    Nenhuma falta encontrada ${usarFiltro && filtroAtivo() ? 'no período selecionado' : 'no sistema'}
+                    Nenhuma falta encontrada ${usarFiltro ? 'no período selecionado' : 'no sistema'}
                 </td>
             </tr>
         `;
         return;
     }
     
-    // PERCORRER APENAS DOCENTES ATIVOS
-    docentesAtivos.forEach(docente => {
-        // USAR faltasParaAnalise (que pode estar filtrada por data)
+    // Ordenar docentes por nome
+    const docentesOrdenados = [...docentesAtivos].sort((a, b) => a.nome.localeCompare(b.nome));
+    
+    docentesOrdenados.forEach(docente => {
         const faltasDocente = faltasParaAnalise.filter(f => f.docenteId === docente.id);
-        const totalFaltas = faltasDocente.reduce((sum, f) => sum + f.quantidadeFaltas, 0);
-        
-        // Se o docente não tem faltas no período (ou em geral), pode pular
-        if (totalFaltas === 0 && usarFiltro) {
-            return; // Não mostrar docentes sem faltas no período filtrado
-        }
-        
+        const totalFaltas = faltasDocente.reduce((sum, f) => sum + (f.quantidadeFaltas || 0), 0);
         const justificadas = faltasDocente
             .filter(f => f.justificada)
-            .reduce((sum, f) => sum + f.quantidadeFaltas, 0);
+            .reduce((sum, f) => sum + (f.quantidadeFaltas || 0), 0);
         const naoJustificadas = totalFaltas - justificadas;
         const percentual = totalFaltas > 0 ? Math.round((justificadas / totalFaltas) * 100) : 0;
         
         const tr = document.createElement('tr');
         tr.innerHTML = `
             <td>${docente.nome}</td>
-            <td>${totalFaltas}</td>
+            <td><strong>${totalFaltas}</strong></td>
             <td class="text-success">${justificadas}</td>
             <td class="text-danger">${naoJustificadas}</td>
             <td>
-                <div class="progress" style="height: 20px;">
+                <div class="progress" style="height: 20px;" title="${percentual}% justificadas">
                     <div class="progress-bar bg-success" role="progressbar" 
                          style="width: ${percentual}%" aria-valuenow="${percentual}" 
                          aria-valuemin="0" aria-valuemax="100">
-                        ${percentual}%
+                        ${percentual > 0 ? percentual + '%' : ''}
                     </div>
+                    ${percentual < 100 ? `
+                    <div class="progress-bar bg-danger" role="progressbar" 
+                         style="width: ${100 - percentual}%">
+                        ${percentual === 0 ? '0%' : ''}
+                    </div>
+                    ` : ''}
                 </div>
             </td>
         `;
         tbody.appendChild(tr);
     });
-    
-    // Se após o filtro não houver linhas (todos os ativos sem faltas no período)
-    if (tbody.innerHTML === '') {
-        tbody.innerHTML = `
-            <tr>
-                <td colspan="5" class="text-center text-muted py-3">
-                    <i class="fas fa-check-circle me-2"></i>
-                    Nenhuma falta encontrada para docentes ativos ${usarFiltro && filtroAtivo() ? 'no período selecionado' : ''}
-                </td>
-            </tr>
-        `;
-    }
 }
-
-window.editarCurso = function(nomeAtual) {
-    const novoNome = prompt(`Editar curso:\n\nNome atual: ${nomeAtual}\n\nDigite o novo nome:`, nomeAtual);
-    
-    if (!novoNome || novoNome.trim() === nomeAtual) return;
-    
-    const novoNomeTrim = novoNome.trim();
-    
-    const existe = SistemaStorage.cursos.some(c => 
-        c.toLowerCase() === novoNomeTrim.toLowerCase() && c !== nomeAtual
-    );
-    
-    if (existe) {
-        alert(`❌ O curso "${novoNomeTrim}" já existe!`);
-        return;
-    }
-    
-    const index = SistemaStorage.cursos.indexOf(nomeAtual);
-    if (index !== -1) {
-        SistemaStorage.cursos[index] = novoNomeTrim;
-        SistemaStorage.salvar('cursos', SistemaStorage.cursos);
-    }
-    
-    SistemaStorage.docentes.forEach(docente => {
-        const cursoIndex = docente.cursos.indexOf(nomeAtual);
-        if (cursoIndex !== -1) {
-            docente.cursos[cursoIndex] = novoNomeTrim;
-        }
-    });
-    SistemaStorage.salvar('docentes', SistemaStorage.docentes);
-    
-    SistemaStorage.faltas.forEach(falta => {
-        if (falta.curso === nomeAtual) {
-            falta.curso = novoNomeTrim;
-        }
-    });
-    SistemaStorage.salvar('faltas', SistemaStorage.faltas);
-    
-    carregarListaCursos();
-    atualizarSelectsCursos();
-    atualizarTabelaDocentes();
-    atualizarTabelaFaltas();
-    
-    alert(`✅ Curso atualizado de "${nomeAtual}" para "${novoNomeTrim}"!`);
-};
 
 window.excluirCurso = function(nome) {
     if (SistemaStorage.cursoEmUso(nome)) {
@@ -1960,457 +3100,1165 @@ function atualizarSelectsJustificativas() {
     }
 }
 
-window.editarJustificativaConfig = function(descricaoAtual) {
-    const novaDescricao = prompt(`Editar justificativa:\n\nDescrição atual: ${descricaoAtual}\n\nDigite a nova descrição:`, descricaoAtual);
-    
-    if (!novaDescricao || novaDescricao.trim() === descricaoAtual) return;
-    
-    const novaDescricaoTrim = novaDescricao.trim();
-    
-    const existe = SistemaStorage.justificativas.some(j => 
-        j.toLowerCase() === novaDescricaoTrim.toLowerCase() && j !== descricaoAtual
-    );
-    
-    if (existe) {
-        alert(`❌ A justificativa "${novaDescricaoTrim}" já existe!`);
-        return;
-    }
-    
-    const index = SistemaStorage.justificativas.indexOf(descricaoAtual);
-    if (index !== -1) {
-        SistemaStorage.justificativas[index] = novaDescricaoTrim;
-        SistemaStorage.salvar('justificativas', SistemaStorage.justificativas);
-    }
-    
-    SistemaStorage.faltas.forEach(falta => {
-        if (falta.justificativa === descricaoAtual) {
-            falta.justificativa = novaDescricaoTrim;
+function atualizarSelectsCursos() {
+    // Atualizar select no modal de docente
+    const selectDocente = document.getElementById('docenteCursoSelect');
+    if (selectDocente) {
+        const selectedValue = selectDocente.value;
+        selectDocente.innerHTML = '<option value="">Selecione um curso</option>';
+        
+        SistemaStorage.getCursosOrdenados().forEach(curso => {
+            const option = document.createElement('option');
+            option.value = curso;
+            option.textContent = curso;
+            selectDocente.appendChild(option);
+        });
+        
+        // Adicionar opção de novo curso
+        const novaOption = document.createElement('option');
+        novaOption.value = 'novo_curso';
+        novaOption.textContent = '+ Novo Curso';
+        selectDocente.appendChild(novaOption);
+        
+        // Restaurar seleção se ainda existir
+        if (selectedValue && SistemaStorage.cursos.includes(selectedValue)) {
+            selectDocente.value = selectedValue;
         }
-    });
-    SistemaStorage.salvar('faltas', SistemaStorage.faltas);
-    
-    carregarListaJustificativasConfig();
-    carregarJustificativas();
-    atualizarSelectsJustificativas();
-    atualizarTabelaFaltas();
-    
-    alert(`✅ Justificativa atualizada de "${descricaoAtual}" para "${novaDescricaoTrim}"!`);
-};
-
-window.excluirJustificativaConfig = function(descricao) {
-    if (SistemaStorage.justificativaEmUso(descricao)) {
-        alert(`❌ Não é possível excluir a justificativa "${descricao}"!\n\nEla está sendo utilizada em registros de faltas.`);
-        return;
     }
     
-    if (!confirm(`Tem certeza que deseja excluir a justificativa "${descricao}"?`)) {
-        return;
-    }
-    
-    if (SistemaStorage.removerJustificativa(descricao)) {
-        carregarListaJustificativasConfig();
-        carregarJustificativas();
-        atualizarSelectsJustificativas();
-        alert(`✅ Justificativa "${descricao}" excluída com sucesso!`);
-    } else {
-        alert(`❌ Erro ao excluir justificativa "${descricao}".`);
-    }
-};
-
-function filtrarJustificativasConfig() {
-    const busca = document.getElementById('buscaJustificativaConfig')?.value.toLowerCase() || '';
-    const itens = document.querySelectorAll('#listaJustificativasConfig .list-group-item');
-    
-    itens.forEach(item => {
-        const texto = item.querySelector('span')?.textContent.toLowerCase() || '';
-        item.style.display = texto.includes(busca) ? 'flex' : 'none';
-    });
-}
-
-// ========== FILTRO DE ANO DINÂMICO ==========
-
-function atualizarFiltroAnos() {
-    const select = document.getElementById('filtroAno');
-    if (!select) return;
-    
-    // Extrair anos únicos das faltas
-    const anosUnicos = new Set();
-    SistemaStorage.faltas.forEach(falta => {
-        if (falta.data) {
-            const ano = new Date(falta.data).getFullYear();
-            anosUnicos.add(ano);
+    // Atualizar select no modal de falta
+    const selectFalta = document.getElementById('cursoSelect');
+    if (selectFalta) {
+        const selectedValue = selectFalta.value;
+        selectFalta.innerHTML = '<option value="">Selecione um curso</option>';
+        
+        SistemaStorage.getCursosOrdenados().forEach(curso => {
+            const option = document.createElement('option');
+            option.value = curso;
+            option.textContent = curso;
+            selectFalta.appendChild(option);
+        });
+        
+        // Restaurar seleção se ainda existir
+        if (selectedValue && SistemaStorage.cursos.includes(selectedValue)) {
+            selectFalta.value = selectedValue;
         }
-    });
-    
-    // Converter para array e ordenar do mais recente
-    const anos = Array.from(anosUnicos).sort((a, b) => b - a);
-    
-    // Salvar seleção atual
-    const selecaoAtual = select.value;
-    
-    // Limpar e reconstruir opções
-    select.innerHTML = '<option value="">Todos os anos</option>';
-    
-    // Adicionar anos dinâmicos
-    anos.forEach(ano => {
-        const option = document.createElement('option');
-        option.value = ano;
-        option.textContent = ano;
-        select.appendChild(option);
-    });
-    
-    // Restaurar seleção se ainda existir
-    if (selecaoAtual && Array.from(select.options).some(opt => opt.value === selecaoAtual)) {
-        select.value = selecaoAtual;
     }
 }
 
-// ========== FUNÇÕES GLOBAIS ==========
-
-window.editarDocente = function(id) {
-    const docente = SistemaStorage.getDocentePorId(id);
-    if (docente) {
-        abrirModalDocenteAvancado(id);
-    } else {
-        alert('❌ Docente não encontrado!');
-    }
-};
-
-window.excluirDocente = function(id) {
-    const docente = SistemaStorage.getDocentePorId(id);
-    if (!docente) return;
+// ========== FUNÇÕES PARA CONFIGURAÇÕES ==========
+function carregarLogs() {
+    const tabela = document.getElementById('tabelaLogs');
+    const contador = document.getElementById('contadorLogs');
+    if (!tabela) return;
     
-    // Verificar se docente tem faltas registradas
-    if (docenteTemFaltas(id)) {
-        alert(`❌ Não é possível excluir o docente "${docente.nome}"!\n\nExistem faltas registradas para este docente. Primeiro exclua as faltas associadas.`);
+    tabela.innerHTML = '';
+    
+    // Obter filtros
+    const filtroUsuario = document.getElementById('filtroLogUsuario')?.value || '';
+    const filtroPerfil = document.getElementById('filtroLogPerfil')?.value || '';
+    const filtroModulo = document.getElementById('filtroLogModulo')?.value || '';
+    const filtroPeriodo = document.getElementById('filtroLogPeriodo')?.value || '30dias';
+    
+    // Aplicar filtros
+    let logsFiltrados = [...SistemaStorage.logs];
+    
+    // Filtrar por período
+    if (filtroPeriodo !== 'todos') {
+        const hoje = new Date();
+        let dataLimite = new Date();
+        
+        switch(filtroPeriodo) {
+            case 'hoje':
+                dataLimite.setHours(0, 0, 0, 0);
+                break;
+            case 'ontem':
+                dataLimite.setDate(hoje.getDate() - 1);
+                dataLimite.setHours(0, 0, 0, 0);
+                break;
+            case '30dias':
+                dataLimite.setDate(hoje.getDate() - 30);
+                break;
+        }
+        
+        logsFiltrados = logsFiltrados.filter(log => {
+            const dataLog = new Date(log.data);
+            return dataLog >= dataLimite;
+        });
+    }
+    
+    // Filtrar por perfil
+    if (filtroPerfil) {
+        logsFiltrados = logsFiltrados.filter(log => log.usuario_perfil === filtroPerfil);
+    }
+    
+    // Filtrar por módulo
+    if (filtroModulo) {
+        logsFiltrados = logsFiltrados.filter(log => log.modulo === filtroModulo);
+    }
+    
+    if (logsFiltrados.length === 0) {
+        tabela.innerHTML = `
+            <tr>
+                <td colspan="7" class="text-center text-muted py-4">
+                    <i class="fas fa-search fa-2x mb-2"></i>
+                    <p class="mb-0">Nenhum registro encontrado</p>
+                    <small>Ajuste os filtros para ver mais registros</small>
+                </td>
+            </tr>
+        `;
+        if (contador) contador.textContent = '0';
         return;
     }
     
-    if (confirm(`Tem certeza que deseja excluir o docente "${docente.nome}"?`)) {
-        if (SistemaStorage.removerDocente(id)) {
-            atualizarTabelaDocentes();
-            atualizarTabelaFaltas();
-            alert('✅ Docente excluído com sucesso!');
-        } else {
-            alert('❌ Erro ao excluir docente.');
-        }
+    // Mostrar logs (limitado a 100 para performance)
+    const logsLimitados = logsFiltrados.slice(0, 100);
+    
+    logsLimitados.forEach(log => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+            <td>${log.data}</td>
+            <td>${log.usuario_nome}</td>
+            <td><span class="badge bg-info">${log.usuario_perfil}</span></td>
+            <td>${log.modulo}</td>
+            <td><span class="badge bg-secondary">${log.acao}</span></td>
+            <td><small class="text-muted">${log.detalhes}</small></td>
+            <td><code>${log.ip}</code></td>
+        `;
+        tabela.appendChild(tr);
+    });
+    
+    if (contador) {
+        contador.textContent = logsLimitados.length;
     }
-};
-
-window.editarFalta = function(id) {
-    console.log('Editando falta ID:', id);
-    
-    const falta = SistemaStorage.faltas.find(f => f.id === id);
-    if (!falta) {
-        alert('❌ Falta não encontrada!');
-        return;
-    }
-    
-    faltaEditandoId = id;
-    
-    // Preencher formulário com dados da falta
-    document.getElementById('docenteSelect').value = falta.docenteId;
-    document.getElementById('disciplinaSelect').value = falta.disciplina;
-    document.getElementById('cursoSelect').value = falta.curso;
-    document.getElementById('quantidadeFaltas').value = falta.quantidadeFaltas;
-    document.getElementById('faltaJustificada').value = falta.justificada ? 'sim' : 'nao';
-    document.getElementById('faltaData').value = falta.data;
-    document.getElementById('faltaHorarioInicio').value = falta.horarioInicio;
-    document.getElementById('faltaHorarioFim').value = falta.horarioFim;
-    document.getElementById('faltaObservacoes').value = falta.observacoes || '';
-    
-    // Configurar justificativa se necessário
-    if (falta.justificada && falta.justificativa) {
-        setTimeout(() => {
-            document.getElementById('justificativaSelect').value = falta.justificativa;
-            toggleCampoJustificativa(); // Atualizar visibilidade
-        }, 100);
-    } else {
-        toggleCampoJustificativa();
-    }
-    
-    // Atualizar título do modal
-    const docente = SistemaStorage.getDocentePorId(falta.docenteId);
-    document.getElementById('faltaModalTitle').textContent = `Editar Falta - ${docente?.nome || 'Docente'}`;
-    
-    // Carregar selects (caso não estejam carregados)
-    carregarSelectsModalFalta(falta.docenteId);
-    
-    // Mostrar modal
-    const modalElement = document.getElementById('addFaltaModal');
-    if (modalElement) {
-        const modal = new bootstrap.Modal(modalElement);
-        modal.show();
-    }
-};
-
-window.excluirFalta = function(id) {
-    if (confirm('Tem certeza que deseja excluir este registro de falta?')) {
-        if (SistemaStorage.removerFalta(id)) {
-            atualizarTabelaFaltas();
-            atualizarEstatisticasCompletas();
-            atualizarFiltroAnos();
-            alert('✅ Falta excluída com sucesso!');
-        } else {
-            alert('❌ Erro ao excluir falta.');
-        }
-    }
-};
-
-window.toggleCampoJustificativa = function() {
-    const faltaJustificada = document.getElementById('faltaJustificada');
-    const justificativaContainer = document.getElementById('justificativaContainer');
-    
-    if (faltaJustificada && justificativaContainer) {
-        if (faltaJustificada.value === 'sim') {
-            justificativaContainer.classList.remove('hidden');
-        } else {
-            justificativaContainer.classList.add('hidden');
-            const justificativaSelect = document.getElementById('justificativaSelect');
-            if (justificativaSelect) justificativaSelect.value = '';
-        }
-    }
-};
-
-// Função auxiliar para verificar se docente tem faltas
-function docenteTemFaltas(id) {
-    return SistemaStorage.faltas.some(f => f.docenteId === id);
 }
 
-// ========== FUNÇÕES configuração ==========
+// ========== FUNÇÕES PARA ABRIR MODAIS (GLOBAIS) ==========
+window.mostrarModalFalta = function() {
+    abrirModalFalta();
+};
+
+window.mostrarModalDocente = function() {
+    abrirModalDocenteAvancado();
+};
 
 window.showConfigModal = function() {
     mostrarModalConfiguracoes();
 };
 
-// Função para mostrar configurações
-function mostrarModalConfiguracoes() {
-    console.log('🔧 Abrindo modal de configurações...');
+// ========== FUNÇÕES PARA GESTÃO DE PERFIS ==========
+function abrirModalPerfil(id = null) {
+    const modalTitle = document.getElementById('perfilModalTitle');
+    const perfilForm = document.getElementById('perfilForm');
     
-    // Carregar listas antes de abrir
-    carregarListaDisciplinas();
-    carregarListaCursos();
-    carregarListaJustificativasConfig();
+    // Resetar formulário
+    if (perfilForm) perfilForm.reset();
     
-    // Mostrar modal
-    const modalElement = document.getElementById('configModal');
-    if (modalElement) {
-        // Verificar se já existe uma instância do modal
-        let modal = bootstrap.Modal.getInstance(modalElement);
-        
-        if (!modal) {
-            // Criar nova instância
-            modal = new bootstrap.Modal(modalElement, {
-                backdrop: true,
-                keyboard: true,
-                focus: true
+    // Se for edição, carregar dados
+    if (id) {
+        const perfil = SistemaStorage.getPerfilPorId(id);
+        if (perfil) {
+            modalTitle.textContent = 'Editar Perfil';
+            
+            document.getElementById('perfilNome').value = perfil.nome;
+            document.getElementById('perfilDescricao').value = perfil.descricao || '';
+            
+            // Preencher checkboxes de permissões
+            Object.keys(perfil.permissoes).forEach(permissao => {
+                const checkbox = document.getElementById(`permissao${permissao.charAt(0).toUpperCase() + permissao.slice(1)}`);
+                if (checkbox) {
+                    checkbox.checked = perfil.permissoes[permissao];
+                }
             });
         }
-        
-        // Limpar event listeners duplicados (se houver)
-        modalElement.removeEventListener('hidden.bs.modal', limparModalConfiguracoes);
-        
-        // Adicionar event listener para limpeza quando fechar
-        modalElement.addEventListener('hidden.bs.modal', limparModalConfiguracoes);
-        
-        // Mostrar modal
-        modal.show();
     } else {
-        console.error('❌ Modal de configurações não encontrado!');
-        alert('Erro ao abrir configurações. Recarregue a página.');
+        modalTitle.textContent = 'Cadastrar Perfil';
+    }
+    
+    // Mostrar modal
+    const modalElement = document.getElementById('addPerfilModal');
+    if (modalElement) {
+        const modal = new bootstrap.Modal(modalElement);
+        modal.show();
     }
 }
 
-// Função para limpar o modal quando fechado
-function limparModalConfiguracoes() {
-    console.log('🧹 Limpando modal de configurações...');
+function salvarPerfil() {
+    const perfilId = perfilEditandoId;
+    const nome = document.getElementById('perfilNome')?.value.trim();
+    const descricao = document.getElementById('perfilDescricao')?.value.trim();
     
-    // Limpar busca dos inputs
-    const buscaInputs = ['buscaDisciplina', 'buscaCurso', 'buscaJustificativaConfig'];
-    buscaInputs.forEach(id => {
-        const input = document.getElementById(id);
-        if (input) input.value = '';
+    // Coletar permissões
+    const permissoes = {};
+    const checkboxes = document.querySelectorAll('#perfilForm .permissao-check');
+    checkboxes.forEach(checkbox => {
+        if (checkbox.id.startsWith('permissao')) {
+            const permissaoKey = checkbox.id.replace('permissao', '').toLowerCase();
+            permissoes[permissaoKey] = checkbox.checked;
+        }
     });
     
-    // Limpar filtros (se aplicável)
-    filtrarDisciplinas();
-    filtrarCursos();
-    filtrarJustificativasConfig();
+    // Validações
+    if (!nome) {
+        alert('❌ Digite o nome do perfil!');
+        return;
+    }
+    
+    // Preparar dados
+    const dadosPerfil = {
+        nome: nome,
+        descricao: descricao,
+        permissoes: permissoes,
+        editavel: true
+    };
+    
+    let resultado = false;
+    let mensagem = '';
+    
+    if (perfilId) {
+        // Editar perfil existente
+        resultado = SistemaStorage.atualizarPerfil(perfilId, dadosPerfil);
+        mensagem = resultado ? 
+            '✅ Perfil atualizado com sucesso!' : 
+            '❌ Erro ao atualizar perfil!';
+    } else {
+        // Novo perfil
+        const id = SistemaStorage.adicionarPerfil(dadosPerfil);
+        resultado = !!id;
+        mensagem = resultado ? 
+            '✅ Perfil cadastrado com sucesso!' : 
+            '❌ Erro ao cadastrar perfil!';
+    }
+    
+    if (resultado) {
+        // Fechar modal
+        const modal = bootstrap.Modal.getInstance(document.getElementById('addPerfilModal'));
+        if (modal) modal.hide();
+        
+        // Atualizar lista de perfis
+        carregarListaPerfis();
+        
+        alert(mensagem);
+    } else {
+        alert(mensagem);
+    }
 }
 
-// Função para carregar justificativas na aba de configurações
-function carregarListaJustificativasConfig() {
-    const lista = document.getElementById('listaJustificativasConfig');
+// ========== FUNÇÃO CARREGAR LISTA DE PERFIS (ATUALIZADA) ==========
+
+function carregarListaPerfis() {
+    const lista = document.getElementById('listaPerfis');
     if (!lista) {
-        console.error('Elemento #listaJustificativasConfig não encontrado!');
+        console.log('Elemento #listaPerfis não encontrado');
         return;
     }
     
     lista.innerHTML = '';
     
-    const justificativas = SistemaStorage.getJustificativasOrdenadas();
+    // APENAS OS 4 PERFIS PRÉ-DEFINIDOS
+    const perfis = SistemaStorage.perfis.filter(p => p.predefinido);
     
-    if (justificativas.length === 0) {
-        lista.innerHTML = `
-            <div class="list-group-item text-center text-muted py-4">
-                <i class="fas fa-file-alt fa-2x mb-2"></i>
-                <p class="mb-0">Nenhuma justificativa cadastrada</p>
-            </div>
-        `;
-        return;
-    }
+    // Ordenar: Master, Gestor, Operador, Supervisor
+    const ordemPerfis = ['Master', 'Gestor', 'Operador', 'Supervisor'];
+    const perfisOrdenados = [...perfis].sort((a, b) => 
+        ordemPerfis.indexOf(a.nome) - ordemPerfis.indexOf(b.nome)
+    );
     
-    justificativas.forEach(justificativa => {
-        const emUso = SistemaStorage.justificativaEmUso(justificativa);
+    perfisOrdenados.forEach(perfil => {
+        const emUso = SistemaStorage.usuarios.some(u => u.perfil_id === perfil.id);
+        const usuariosComPerfil = SistemaStorage.usuarios.filter(u => u.perfil_id === perfil.id).length;
+        const podeEditar = perfil.editavel && temPermissao('gerenciar_perfis');
+        
         const item = document.createElement('div');
-        item.className = 'list-group-item d-flex justify-content-between align-items-center';
+        item.className = 'list-group-item';
         item.innerHTML = `
-            <span>${justificativa}</span>
-            <div>
-                <button class="btn btn-warning btn-sm me-1" onclick="editarJustificativaConfig('${justificativa.replace(/'/g, "\\'")}')">
-                    <i class="fas fa-edit"></i>
-                </button>
-                <button class="btn btn-danger btn-sm" onclick="excluirJustificativaConfig('${justificativa.replace(/'/g, "\\'")}')"
-                        ${emUso ? 'disabled title="Esta justificativa está em uso"' : ''}>
-                    <i class="fas fa-trash"></i>
-                </button>
+            <div class="d-flex justify-content-between align-items-start">
+                <div class="flex-grow-1">
+                    <h6 class="mb-1">
+                        <i class="fas fa-user-shield me-2 ${perfil.nome === 'Master' ? 'text-danger' : 'text-primary'}"></i>
+                        <strong>${perfil.nome}</strong>
+                        ${perfil.nome === 'Master' ? 
+                            '<span class="badge bg-danger ms-2">Não editável</span>' : 
+                            '<span class="badge bg-success ms-2">Editável</span>'}
+                    </h6>
+                    <div class="small text-muted mb-2">
+                        ${perfil.descricao || 'Sem descrição'}
+                    </div>
+                    <div class="small">
+                        <span class="badge ${perfil.nome === 'Master' ? 'bg-danger' : 'bg-info'}">
+                            Perfil Pré-definido
+                        </span>
+                        <span class="badge ${emUso ? 'bg-success' : 'bg-secondary'} ms-2">
+                            ${usuariosComPerfil} usuário(s)
+                        </span>
+                    </div>
+                </div>
+                <div class="btn-group">
+                    <button class="btn btn-sm btn-outline-primary me-1" onclick="visualizarDetalhesPerfil(${perfil.id})">
+                        <i class="fas fa-eye"></i>
+                    </button>
+                    ${podeEditar ? `
+                    <button class="btn btn-sm btn-outline-warning" onclick="editarPermissoesPerfil(${perfil.id})">
+                        <i class="fas fa-edit"></i>
+                    </button>
+                    ` : ''}
+                </div>
             </div>
         `;
         lista.appendChild(item);
     });
+    
+    // ESCONDER O BOTÃO "NOVO PERFIL" - não vamos criar novos perfis
+    const btnNovoPerfil = document.getElementById('btnNovoPerfil');
+    if (btnNovoPerfil) {
+        btnNovoPerfil.style.display = 'none';
+    }
 }
 
-// Função para verificar se docente tem disciplinas/cursos cadastrados
-function validarDocenteSelecionado(docenteId) {
-    if (!docenteId) return true; // Sem docente selecionado é válido
-    
-    const disciplinas = SistemaStorage.getDisciplinasPorDocente(docenteId);
-    const cursos = SistemaStorage.getCursosPorDocente(docenteId);
-    
-    if (disciplinas.length === 0) {
-        console.warn(`Docente ID ${docenteId} não tem disciplinas cadastradas`);
-        return false;
-    }
-    
-    if (cursos.length === 0) {
-        console.warn(`Docente ID ${docenteId} não tem cursos cadastrados`);
-        return false;
-    }
-    
-    return true;
-}
+// ========== FUNÇÃO VISUALIZAR DETALHES DO PERFIL ==========
 
-// ========== FUNÇÕES DO RELATÓRIO ==========
+window.visualizarDetalhesPerfil = function(perfilId) {
+    const perfil = SistemaStorage.getPerfilPorId(perfilId);
+    if (!perfil) return;
+    
+    // Criar descrição das permissões
+    let permissoesHTML = '';
+    
+    // Contar permissões
+    let totalPermissoes = 0;
+    let permissoesAtivas = 0;
+    
+    Object.values(perfil.permissoes).forEach(valor => {
+        totalPermissoes++;
+        if (valor) permissoesAtivas++;
+    });
+    
+    const porcentagem = Math.round((permissoesAtivas / totalPermissoes) * 100);
+    
+    permissoesHTML = `
+        <div class="alert ${porcentagem > 80 ? 'alert-success' : porcentagem > 50 ? 'alert-info' : 'alert-warning'}">
+            <i class="fas fa-chart-pie me-2"></i>
+            <strong>Resumo de Permissões:</strong> ${permissoesAtivas}/${totalPermissoes} ativas (${porcentagem}%)
+        </div>
+    `;
+    
+    // Usuários com este perfil
+    const usuariosComPerfil = SistemaStorage.usuarios.filter(u => u.perfil_id === perfilId);
+    let usuariosHTML = '';
+    
+    if (usuariosComPerfil.length > 0) {
+        usuariosHTML = `
+            <h6 class="mt-3 mb-2">Usuários com este perfil (${usuariosComPerfil.length}):</h6>
+            <div class="list-group">
+        `;
+        
+        usuariosComPerfil.forEach(usuario => {
+            usuariosHTML += `
+                <div class="list-group-item small">
+                    <i class="fas fa-user me-2 ${usuario.ativo ? 'text-success' : 'text-secondary'}"></i>
+                    <strong>${usuario.nome}</strong>
+                    <span class="badge ${usuario.ativo ? 'bg-success' : 'bg-secondary'} ms-2">
+                        ${usuario.ativo ? 'Ativo' : 'Inativo'}
+                    </span>
+                    <div class="text-muted">${usuario.cpf}</div>
+                </div>
+            `;
+        });
+        
+        usuariosHTML += '</div>';
+    } else {
+        usuariosHTML = `
+            <div class="alert alert-light mt-3">
+                <i class="fas fa-info-circle me-2"></i>
+                Nenhum usuário possui este perfil no momento.
+            </div>
+        `;
+    }
+    
+    // Criar modal
+    const modalHTML = `
+        <div class="modal fade" id="detalhesPerfilModal">
+            <div class="modal-dialog modal-lg">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">
+                            <i class="fas fa-user-shield me-2"></i>
+                            Detalhes do Perfil: ${perfil.nome}
+                        </h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="row">
+                            <div class="col-md-8">
+                                <h6>Descrição:</h6>
+                                <p>${perfil.descricao || 'Sem descrição'}</p>
+                                
+                                ${permissoesHTML}
+                            </div>
+                            <div class="col-md-4">
+                                <div class="card">
+                                    <div class="card-header">
+                                        <h6 class="mb-0">Informações</h6>
+                                    </div>
+                                    <div class="card-body">
+                                        <p><strong>ID:</strong> ${perfil.id}</p>
+                                        <p><strong>Tipo:</strong> Pré-definido</p>
+                                        <p><strong>Editável:</strong> ${perfil.editavel ? 'Sim' : 'Não'}</p>
+                                        <p><strong>Criado em:</strong> ${perfil.data_criacao || 'Data não disponível'}</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        ${usuariosHTML}
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fechar</button>
+                        ${perfil.editavel ? `
+                        <button type="button" class="btn btn-warning" onclick="editarPermissoesPerfil(${perfil.id})">
+                            <i class="fas fa-edit me-1"></i> Editar Permissões
+                        </button>
+                        ` : ''}
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    // Inserir modal no DOM
+    const modalContainer = document.createElement('div');
+    modalContainer.innerHTML = modalHTML;
+    document.body.appendChild(modalContainer);
+    
+    // Mostrar modal
+    const modal = new bootstrap.Modal(document.getElementById('detalhesPerfilModal'));
+    modal.show();
+    
+    // Remover modal do DOM quando fechar
+    modalContainer.addEventListener('hidden.bs.modal', function() {
+        document.body.removeChild(modalContainer);
+    });
+};
+
+window.visualizarDetalhesPerfil = function(perfilId) {
+    const perfil = SistemaStorage.getPerfilPorId(perfilId);
+    if (!perfil) return;
+    
+    // Criar descrição das permissões baseado no nome do perfil
+    let permissoesHTML = '';
+    
+    if (perfil.nome === 'Master') {
+        permissoesHTML = `
+            <div class="alert alert-success">
+                <i class="fas fa-crown me-2"></i>
+                <strong>Permissões Completas:</strong> Acesso total a todo o sistema
+            </div>
+        `;
+    } else if (perfil.nome === 'Gestor') {
+        permissoesHTML = `
+            <div class="alert alert-info">
+                <i class="fas fa-user-tie me-2"></i>
+                <strong>Permissões de Gestão:</strong> Pode fazer tudo exceto alterar configurações do Master
+            </div>
+        `;
+    } else if (perfil.nome === 'Operador') {
+        permissoesHTML = `
+            <div class="alert alert-warning">
+                <i class="fas fa-user-edit me-2"></i>
+                <strong>Permissões Limitadas:</strong> Pode visualizar tudo, editar docentes, mas não excluir
+            </div>
+        `;
+    } else if (perfil.nome === 'Supervisor') {
+        permissoesHTML = `
+            <div class="alert alert-secondary">
+                <i class="fas fa-chart-line me-2"></i>
+                <strong>Permissões de Visualização:</strong> Apenas visualização e geração de relatórios
+            </div>
+        `;
+    }
+    
+    // Usuários com este perfil
+    const usuariosComPerfil = SistemaStorage.usuarios.filter(u => u.perfil_id === perfilId);
+    let usuariosHTML = '';
+    
+    if (usuariosComPerfil.length > 0) {
+        usuariosHTML = `
+            <h6 class="mt-3 mb-2">Usuários com este perfil (${usuariosComPerfil.length}):</h6>
+            <div class="list-group">
+        `;
+        
+        usuariosComPerfil.forEach(usuario => {
+            usuariosHTML += `
+                <div class="list-group-item small">
+                    <i class="fas fa-user me-2 ${usuario.ativo ? 'text-success' : 'text-secondary'}"></i>
+                    <strong>${usuario.nome}</strong>
+                    <span class="badge ${usuario.ativo ? 'bg-success' : 'bg-secondary'} ms-2">
+                        ${usuario.ativo ? 'Ativo' : 'Inativo'}
+                    </span>
+                    <div class="text-muted">${usuario.cpf}</div>
+                </div>
+            `;
+        });
+        
+        usuariosHTML += '</div>';
+    } else {
+        usuariosHTML = `
+            <div class="alert alert-light mt-3">
+                <i class="fas fa-info-circle me-2"></i>
+                Nenhum usuário possui este perfil no momento.
+            </div>
+        `;
+    }
+    
+    // Criar modal
+    const modalHTML = `
+        <div class="modal fade" id="detalhesPerfilModal">
+            <div class="modal-dialog modal-lg">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">
+                            <i class="fas fa-user-shield me-2"></i>
+                            Detalhes do Perfil: ${perfil.nome}
+                        </h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="row">
+                            <div class="col-md-8">
+                                <h6>Descrição:</h6>
+                                <p>${perfil.descricao || 'Sem descrição'}</p>
+                                
+                                ${permissoesHTML}
+                            </div>
+                            <div class="col-md-4">
+                                <div class="card">
+                                    <div class="card-header">
+                                        <h6 class="mb-0">Informações</h6>
+                                    </div>
+                                    <div class="card-body">
+                                        <p><strong>ID:</strong> ${perfil.id}</p>
+                                        <p><strong>Tipo:</strong> Pré-definido</p>
+                                        <p><strong>Editável:</strong> ${perfil.editavel ? 'Sim' : 'Não'}</p>
+                                        <p><strong>Criado em:</strong> ${perfil.data_criacao || 'Data não disponível'}</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        ${usuariosHTML}
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fechar</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    // Inserir modal no DOM
+    const modalContainer = document.createElement('div');
+    modalContainer.innerHTML = modalHTML;
+    document.body.appendChild(modalContainer);
+    
+    // Mostrar modal
+    const modal = new bootstrap.Modal(document.getElementById('detalhesPerfilModal'));
+    modal.show();
+    
+    // Remover modal do DOM quando fechar
+    modalContainer.addEventListener('hidden.bs.modal', function() {
+        document.body.removeChild(modalContainer);
+    });
+};
+
+// NO app.js, ADICIONE estas funções:
+
+// ========== FUNÇÕES PARA VISUALIZAR/EDITAR PERMISSÕES ==========
+
+window.visualizarPermissoesPerfil = function(perfilId) {
+    const perfil = SistemaStorage.getPerfilPorId(perfilId);
+    if (!perfil) return;
+    
+    // Criar tabela de permissões
+    let html = `
+        <div class="modal-header">
+            <h5 class="modal-title">Permissões do Perfil: ${perfil.nome}</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+            <p class="text-muted mb-3">${perfil.descricao || 'Sem descrição'}</p>
+            
+            <div class="table-responsive">
+                <table class="table table-sm">
+                    <thead>
+                        <tr>
+                            <th>Módulo</th>
+                            <th>Permissão</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+    `;
+    
+    // Organizar permissões por módulo
+    const permissoesPorModulo = {
+        'CONTROLE DE FALTAS': ['ver_faltas', 'registrar_falta', 'editar_falta', 'excluir_falta'],
+        'DADOS DO DOCENTE': ['ver_docentes', 'cadastrar_docente', 'editar_docente', 'excluir_docente'],
+        'JUSTIFICATIVAS': ['ver_justificativas', 'gerenciar_justificativas'],
+        'RELATÓRIOS E ESTATÍSTICAS': ['ver_relatorios', 'gerar_relatorio_pdf'],
+        'CONFIGURAÇÕES': ['acessar_configuracoes', 'gerenciar_disciplinas', 'gerenciar_cursos', 'gerenciar_justificativas', 'gerenciar_usuarios', 'editar_usuario', 'resetar_senhas', 'visualizar_logs', 'gerenciar_perfis']
+    };
+    
+    Object.entries(permissoesPorModulo).forEach(([modulo, permissoes]) => {
+        html += `
+            <tr>
+                <td colspan="3" class="bg-light fw-bold">${modulo}</td>
+            </tr>
+        `;
+        
+        permissoes.forEach(permissao => {
+            const nomePermissao = permissao.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+            const temPermissao = perfil.permissoes[permissao] === true;
+            
+            html += `
+                <tr>
+                    <td></td>
+                    <td>${nomePermissao}</td>
+                    <td>
+                        <span class="badge ${temPermissao ? 'bg-success' : 'bg-secondary'}">
+                            ${temPermissao ? '✓ Permitido' : '✗ Negado'}
+                        </span>
+                    </td>
+                </tr>
+            `;
+        });
+    });
+    
+    html += `
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fechar</button>
+        </div>
+    `;
+    
+    // Criar modal dinâmico
+    const modalDiv = document.createElement('div');
+    modalDiv.className = 'modal fade';
+    modalDiv.innerHTML = `
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                ${html}
+            </div>
+        </div>
+    `;
+    
+    document.body.appendChild(modalDiv);
+    const modal = new bootstrap.Modal(modalDiv);
+    modal.show();
+    
+    // Remover modal do DOM quando fechar
+    modalDiv.addEventListener('hidden.bs.modal', function() {
+        document.body.removeChild(modalDiv);
+    });
+};
+
+window.editarPermissoesPerfil = function(perfilId) {
+    if (!temPermissao('gerenciar_perfis')) {
+        alert('❌ Você não tem permissão para editar permissões!');
+        return;
+    }
+    
+    const perfil = SistemaStorage.getPerfilPorId(perfilId);
+    if (!perfil || perfil.nome === 'Master') {
+        alert('❌ Não é possível editar as permissões do perfil Master!');
+        return;
+    }
+    
+    // Aqui você pode criar um modal interativo para editar permissões
+    // Para simplificar, vou mostrar um alerta com opções
+    const opcoes = {
+        'Gestor': 'Todas as permissões (exceto Master)',
+        'Operador': 'Permissões limitadas (pode ver tudo, editar docentes, mas não excluir)',
+        'Supervisor': 'Apenas visualização e relatórios'
+    };
+    
+    let mensagem = `Editar permissões do perfil: ${perfil.nome}\n\n`;
+    mensagem += 'Selecione um modelo de permissões:\n\n';
+    
+    Object.entries(opcoes).forEach(([nome, descricao]) => {
+        if (nome !== 'Master') {
+            mensagem += `${nome}: ${descricao}\n`;
+        }
+    });
+    
+    const modelo = prompt(mensagem + '\nDigite o nome do modelo (Gestor, Operador ou Supervisor):', perfil.nome);
+    
+    if (modelo) {
+        // Atualizar permissões baseado no modelo
+        let novasPermissoes = {};
+        
+        switch(modelo.toUpperCase()) {
+            case 'GESTOR':
+                // Todas permissões (exceto alterar Master)
+                novasPermissoes = {
+                    ver_faltas: true,
+                    registrar_falta: true,
+                    editar_falta: true,
+                    excluir_falta: true,
+                    ver_docentes: true,
+                    cadastrar_docente: true,
+                    editar_docente: true,
+                    excluir_docente: true,
+                    ver_justificativas: true,
+                    gerenciar_justificativas: true,
+                    ver_relatorios: true,
+                    gerar_relatorio_pdf: true,
+                    acessar_configuracoes: true,
+                    gerenciar_disciplinas: true,
+                    gerenciar_cursos: true,
+                    gerenciar_usuarios: true,
+                    editar_usuario: true,
+                    resetar_senhas: true,
+                    visualizar_logs: true,
+                    gerenciar_perfis: true
+                };
+                break;
+                
+            case 'OPERADOR':
+                // Permissões limitadas
+                novasPermissoes = {
+                    ver_faltas: true,
+                    registrar_falta: true,
+                    editar_falta: false,
+                    excluir_falta: false,
+                    ver_docentes: true,
+                    cadastrar_docente: false,
+                    editar_docente: true,
+                    excluir_docente: false,
+                    ver_justificativas: true,
+                    gerenciar_justificativas: false,
+                    ver_relatorios: true,
+                    gerar_relatorio_pdf: false,
+                    acessar_configuracoes: false,
+                    gerenciar_disciplinas: false,
+                    gerenciar_cursos: false,
+                    gerenciar_usuarios: false,
+                    editar_usuario: false,
+                    resetar_senhas: false,
+                    visualizar_logs: false,
+                    gerenciar_perfis: false
+                };
+                break;
+                
+            case 'SUPERVISOR':
+                // Apenas visualização
+                novasPermissoes = {
+                    ver_faltas: true,
+                    registrar_falta: false,
+                    editar_falta: false,
+                    excluir_falta: false,
+                    ver_docentes: true,
+                    cadastrar_docente: false,
+                    editar_docente: false,
+                    excluir_docente: false,
+                    ver_justificativas: true,
+                    gerenciar_justificativas: false,
+                    ver_relatorios: true,
+                    gerar_relatorio_pdf: true,
+                    acessar_configuracoes: false,
+                    gerenciar_disciplinas: false,
+                    gerenciar_cursos: false,
+                    gerenciar_usuarios: false,
+                    editar_usuario: false,
+                    resetar_senhas: false,
+                    visualizar_logs: false,
+                    gerenciar_perfis: false
+                };
+                break;
+                
+            default:
+                alert('❌ Modelo inválido!');
+                return;
+        }
+        
+        if (confirm(`Confirmar alteração das permissões do perfil "${perfil.nome}" para o modelo "${modelo}"?`)) {
+            if (SistemaStorage.atualizarPerfil(perfilId, { permissoes: novasPermissoes })) {
+                alert(`✅ Permissões do perfil "${perfil.nome}" atualizadas com sucesso!`);
+                
+                // Atualizar lista de perfis
+                carregarListaPerfis();
+                
+                // Aplicar novas permissões na interface se o usuário atual foi afetado
+                const usuarioAtual = SistemaStorage.getUsuarioAtual();
+                if (usuarioAtual && usuarioAtual.perfil_id === perfilId) {
+                    aplicarPermissoesInterface();
+                }
+            } else {
+                alert('❌ Erro ao atualizar permissões!');
+            }
+        }
+    }
+};
+
+// ========== FUNÇÕES GLOBAIS PARA PERFIS ==========
+window.editarPerfil = function(id) {
+    if (!temPermissao('gerenciar_perfis')) {
+        alert('❌ Você não tem permissão para editar perfis!');
+        return;
+    }
+    
+    const perfil = SistemaStorage.getPerfilPorId(id);
+    if (perfil) {
+        perfilEditandoId = id;
+        abrirModalPerfil(id);
+    } else {
+        alert('❌ Perfil não encontrado!');
+    }
+};
+
+window.excluirPerfil = function(id) {
+    if (!temPermissao('gerenciar_perfis')) {
+        alert('❌ Você não tem permissão para excluir perfis!');
+        return;
+    }
+    
+    const perfil = SistemaStorage.getPerfilPorId(id);
+    if (!perfil) return;
+    
+    if (confirm(`Tem certeza que deseja excluir o perfil "${perfil.nome}"?\n\nEsta ação não poderá ser desfeita.`)) {
+        if (SistemaStorage.removerPerfil(id)) {
+            carregarListaPerfis();
+            alert('✅ Perfil excluído com sucesso!');
+        } else {
+            alert('❌ Erro ao excluir perfil.');
+        }
+    }
+};
+
+// ========== FUNÇÃO GERAR RELATÓRIO DE DOCENTES ==========
 
 function gerarRelatorioDocentes() {
-    console.log('Gerando relatório de docentes...');
+    console.log('📄 Gerando relatório de docentes...');
     
-    // OBTER DADOS DO FILTRO
     const { dataInicio, dataFim } = getDatasFiltroAtual();
     const temFiltro = filtroAtivo();
     
-    // OBTER FALTAS (FILTRADAS OU TODAS)
     const faltasParaRelatorio = temFiltro 
         ? getFaltasFiltradasPorPeriodo(dataInicio, dataFim)
         : SistemaStorage.faltas;
     
-    // Coletar dados para o relatório
     const dataAtual = new Date().toLocaleDateString('pt-BR');
+    const horaAtual = new Date().toLocaleTimeString('pt-BR');
     const totalDocentes = SistemaStorage.docentes.length;
     const docentesAtivos = SistemaStorage.docentes.filter(d => d.ativo !== false).length;
     const docentesInativos = totalDocentes - docentesAtivos;
     
-    // Usar faltasParaRelatorio em vez de SistemaStorage.faltas
-    const totalFaltas = faltasParaRelatorio.reduce((sum, f) => sum + f.quantidadeFaltas, 0);
+    const totalFaltas = faltasParaRelatorio.reduce((sum, f) => sum + (f.quantidadeFaltas || 0), 0);
     const faltasJustificadas = faltasParaRelatorio
         .filter(f => f.justificada)
-        .reduce((sum, f) => sum + f.quantidadeFaltas, 0);
+        .reduce((sum, f) => sum + (f.quantidadeFaltas || 0), 0);
+    const faltasNaoJustificadas = totalFaltas - faltasJustificadas;
+    const percentualJustificadas = totalFaltas > 0 ? Math.round((faltasJustificadas / totalFaltas) * 100) : 0;
     
-    // CRIAR CABEÇALHO DO RELATÓRIO COM INFORMAÇÃO DO FILTRO
-    let relatorio = `
-        RELATÓRIO DE DOCENTES - SISTEMA DE CONTROLE DE FALTAS
-        ================================================================
-        Data do Relatório: ${dataAtual}
-    `;
+    let relatorio = `═══════════════════════════════════════════════════════════════
+              RELATÓRIO DE DOCENTES
+         SISTEMA DE CONTROLE DE FALTAS
+═══════════════════════════════════════════════════════════════
+
+📅 Data: ${dataAtual} às ${horaAtual}
+`;
     
-    // ADICIONAR INFORMAÇÃO DO PERÍODO DO FILTRO
     if (temFiltro) {
         const periodoTexto = dataInicio && dataFim 
-            ? `Período: ${formatarData(dataInicio)} a ${formatarData(dataFim)}`
+            ? `📆 Período: ${formatarDataCorreta(dataInicio)} a ${formatarDataCorreta(dataFim)}`
             : dataInicio 
-                ? `A partir de: ${formatarData(dataInicio)}`
-                : `Até: ${formatarData(dataFim)}`;
+                ? `📆 A partir de: ${formatarDataCorreta(dataInicio)}`
+                : `📆 Até: ${formatarDataCorreta(dataFim)}`;
         
-        relatorio += `        ${periodoTexto}\n`;
+        relatorio += `${periodoTexto}\n`;
     }
     
     relatorio += `
-        
-        RESUMO GERAL:
-        ---------------------------------------------------------------
-        • Total de Docentes: ${totalDocentes}
-        • Docentes Ativos: ${docentesAtivos}
-        • Docentes Inativos: ${docentesInativos}
-        • Total de Faltas Registradas: ${totalFaltas} ${temFiltro ? '(no período)' : ''}
-        • Faltas Justificadas: ${faltasJustificadas}
-        • Faltas Não Justificadas: ${totalFaltas - faltasJustificadas}
-        
-        LISTA DE DOCENTES:
-        ----------------------------------------------------------------
-    `;
+═══════════════════════════════════════════════════════════════
+
+📊 RESUMO GERAL:
+───────────────────────────────────────────────────────────────
+👥 Total de Docentes: ${totalDocentes}
+   ├─ ✅ Ativos: ${docentesAtivos}
+   └─ ❌ Inativos: ${docentesInativos}
+
+📋 Total de Faltas: ${totalFaltas} ${temFiltro ? '(no período)' : ''}
+   ├─ ✅ Justificadas: ${faltasJustificadas}
+   └─ ❌ Não Justificadas: ${faltasNaoJustificadas}
+
+📈 Percentual de Justificativas: ${percentualJustificadas}%
+
+═══════════════════════════════════════════════════════════════
+
+📋 LISTA DE DOCENTES:
+───────────────────────────────────────────────────────────────
+`;
     
-    // MODIFICAR cálculo das faltas por docente para usar dados filtrados
-        // Mostrar apenas docentes ativos no relatório
-    SistemaStorage.docentes
+    const docentesOrdenados = SistemaStorage.docentes
         .filter(docente => docente.ativo !== false)
-        .forEach((docente, index) => {
-        // USAR faltasParaRelatorio em vez de SistemaStorage.faltas
+        .sort((a, b) => a.nome.localeCompare(b.nome));
+    
+    docentesOrdenados.forEach((docente, index) => {
         const faltasDocente = faltasParaRelatorio
             .filter(f => f.docenteId === docente.id)
-            .reduce((sum, f) => sum + f.quantidadeFaltas, 0);
+            .reduce((sum, f) => sum + (f.quantidadeFaltas || 0), 0);
+        
+        const faltasJustDocente = faltasParaRelatorio
+            .filter(f => f.docenteId === docente.id && f.justificada)
+            .reduce((sum, f) => sum + (f.quantidadeFaltas || 0), 0);
+        
+        const percentualDocente = faltasDocente > 0 ? Math.round((faltasJustDocente / faltasDocente) * 100) : 0;
         
         relatorio += `
-        ${index + 1}. ${docente.nome}
-           - Disciplinas: ${docente.disciplinas.join(', ')}
-           - Cursos: ${docente.cursos.join(', ')}
-           - Aulas/Semana: ${docente.aulas}
-           - Total de Faltas: ${faltasDocente} ${temFiltro ? '(no período)' : ''}
-        `;
+${index + 1}. ${docente.nome}
+   📚 Disciplinas: ${docente.disciplinas.join(', ')}
+   🎓 Cursos: ${docente.cursos.join(', ')}
+   ⏱️  Aulas/Semana: ${docente.aulas}
+   📊 Total de Faltas: ${faltasDocente} ${temFiltro ? '(no período)' : ''}
+      ├─ ✅ Justificadas: ${faltasJustDocente}
+      └─ ❌ Não Justificadas: ${faltasDocente - faltasJustDocente}
+      └─ 📈 Percentual: ${percentualDocente}%
+`;
     });
     
-    //relatorio += `
-    //    =============================================================
-    //    Relatório gerado automaticamente pelo sistema.
-    //`;
+    relatorio += `
+═══════════════════════════════════════════════════════════════
+            Relatório gerado automaticamente
+═══════════════════════════════════════════════════════════════`;
     
-    // Criar um popup com o relatório
     const janelaRelatorio = window.open('', '_blank');
     janelaRelatorio.document.write(`
         <!DOCTYPE html>
         <html lang="pt-BR">
         <head>
             <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
             <title>Relatório de Docentes</title>
             <style>
-                body { font-family: Arial, sans-serif; margin: 40px; }
-                h1 { color: #2c3e50; border-bottom: 2px solid #3498db; padding-bottom: 10px; }
-                pre { background-color: #f8f9fa; padding: 20px; border-radius: 5px; border: 1px solid #dee2e6; white-space: pre-wrap; }
-                .btn-print { padding: 10px 20px; background-color: #3498db; color: white; border: none; border-radius: 5px; cursor: pointer; margin: 5px; }
-                .btn-print:hover { background-color: #2980b9; }
+                body { 
+                    font-family: 'Courier New', monospace; 
+                    margin: 40px; 
+                    background: #fff;
+                    line-height: 1.5;
+                }
+                h1 { 
+                    color: #2c3e50; 
+                    border-bottom: 2px solid #3498db; 
+                    padding-bottom: 10px;
+                    font-family: Arial, sans-serif;
+                }
+                pre { 
+                    background-color: #f8f9fa; 
+                    padding: 20px; 
+                    border-radius: 5px; 
+                    border: 1px solid #dee2e6; 
+                    white-space: pre-wrap;
+                    font-size: 14px;
+                }
+                .btn-print { 
+                    padding: 10px 20px; 
+                    background-color: #3498db; 
+                    color: white; 
+                    border: none; 
+                    border-radius: 5px; 
+                    cursor: pointer; 
+                    margin: 5px;
+                    font-family: Arial, sans-serif;
+                }
+                .btn-print:hover { 
+                    background-color: #2980b9; 
+                }
+                .btn-close {
+                    padding: 10px 20px;
+                    background-color: #95a5a6;
+                    color: white;
+                    border: none;
+                    border-radius: 5px;
+                    cursor: pointer;
+                    margin: 5px;
+                    font-family: Arial, sans-serif;
+                }
+                .btn-close:hover {
+                    background-color: #7f8c8d;
+                }
+                .footer {
+                    margin-top: 20px;
+                    text-align: center;
+                }
             </style>
         </head>
         <body>
-            <h1> Relatório de Docentes</h1>
+            <h1>📄 Relatório de Docentes</h1>
             <pre>${relatorio}</pre>
-            <button class="btn-print" onclick="window.print()">🖨️ Imprimir Relatório</button>
-            <button class="btn-print" onclick="window.close()" style="background-color: #95a5a6;">✖️ Fechar</button>
+            <div class="footer">
+                <button class="btn-print" onclick="window.print()">🖨️ Imprimir Relatório</button>
+                <button class="btn-close" onclick="window.close()">✖️ Fechar</button>
+            </div>
         </body>
         </html>
     `);
-    
-    console.log('Relatório gerado com sucesso!');
-    //alert('📄 Relatório gerado em nova janela!');
 }
 
-// ========== INICIALIZAÇÃO FINAL ==========
-console.log('Sistema de Controle de Faltas carregado!');
+// ========== FUNÇÃO GERAR NOVA SENHA PARA USUÁRIO ==========
+
+function gerarNovaSenhaUsuario(usuarioId) {
+    const usuario = SistemaStorage.getUsuarioPorId(usuarioId);
+    if (!usuario) return;
+    
+    // USAR A FUNÇÃO LOCAL gerarSenhaAleatoria (não SistemaStorage.gerarSenhaAleatoria)
+    const novaSenha = gerarSenhaAleatoria(10); // 10 caracteres
+    
+    // Atualizar usuário com nova senha
+    const dadosAtualizados = {
+        senha_hash: novaSenha
+    };
+    
+    if (SistemaStorage.atualizarUsuario(usuarioId, dadosAtualizados)) {
+        // Mostrar nova senha no modal
+        const senhaGeradaElement = document.getElementById('senhaGerada');
+        const senhaContainer = document.getElementById('senhaGeradaContainer');
+        
+        if (senhaGeradaElement) {
+            senhaGeradaElement.textContent = novaSenha;
+        }
+        if (senhaContainer) {
+            senhaContainer.style.display = 'block';
+        }
+        
+        alert('✅ Nova senha gerada com sucesso!\n\nSenha: ' + novaSenha + '\n\nAnote esta senha!');
+    } else {
+        alert('❌ Erro ao gerar nova senha!');
+    }
+}
+
+// ========== FUNÇÃO RESETAR SENHA DE USUÁRIO ==========
+
+function resetarSenhaUsuario(usuarioId) {
+    const usuario = SistemaStorage.getUsuarioPorId(usuarioId);
+    if (!usuario) {
+        console.error('Usuário não encontrado ID:', usuarioId);
+        alert('❌ Usuário não encontrado!');
+        return;
+    }
+    
+    // Gerar nova senha
+    const novaSenha = gerarSenhaAleatoria ? gerarSenhaAleatoria() : 'NovaSenha123';
+    
+    console.log('Resetando senha para usuário:', usuario.nome, 'Nova senha:', novaSenha);
+    
+    // Preencher modal de confirmação
+    const nomeUsuarioReset = document.getElementById('nomeUsuarioReset');
+    const novaSenhaGerada = document.getElementById('novaSenhaGerada');
+    
+    if (nomeUsuarioReset) nomeUsuarioReset.textContent = usuario.nome;
+    if (novaSenhaGerada) novaSenhaGerada.textContent = novaSenha;
+    
+    // Configurar botão de confirmação
+    const confirmarBtn = document.getElementById('confirmarResetSenhaBtn');
+    if (confirmarBtn) {
+        // Remover event listeners anteriores
+        const newConfirmarBtn = confirmarBtn.cloneNode(true);
+        confirmarBtn.parentNode.replaceChild(newConfirmarBtn, confirmarBtn);
+        
+        newConfirmarBtn.onclick = function() {
+            const dadosAtualizados = {
+                senha_hash: novaSenha
+            };
+            
+            if (SistemaStorage.atualizarUsuario(usuarioId, dadosAtualizados)) {
+                alert(`✅ Senha resetada com sucesso!\n\nNova senha: ${novaSenha}\n\nAnote esta senha!`);
+                
+                // Fechar modal
+                const modal = bootstrap.Modal.getInstance(document.getElementById('resetSenhaModal'));
+                if (modal) modal.hide();
+                
+                // Registrar log
+                SistemaStorage.registrarLog('RESET_SENHA', 'Usuários', 
+                    `Resetou senha do usuário: ${usuario.nome}`, SistemaStorage.getUsuarioAtual()?.id);
+            } else {
+                alert('❌ Erro ao resetar senha!');
+            }
+        };
+    }
+    
+    // Mostrar modal
+    const modalElement = document.getElementById('resetSenhaModal');
+    if (modalElement) {
+        const modal = bootstrap.Modal.getInstance(modalElement) || new bootstrap.Modal(modalElement);
+        modal.show();
+    } else {
+        console.error('Modal de reset de senha não encontrado!');
+        alert('❌ Erro: Modal não encontrado. Recarregue a página.');
+    }
+}
+
+// ========== FUNÇÃO PARA FILTRAR USUÁRIOS ==========
+function filtrarUsuarios() {
+    const busca = document.getElementById('buscaUsuario')?.value.toLowerCase() || '';
+    const itens = document.querySelectorAll('#listaUsuarios .list-group-item');
+    
+    itens.forEach(item => {
+        const nome = item.querySelector('h6')?.textContent.toLowerCase() || '';
+        const cpf = item.querySelector('.small.text-muted')?.textContent.toLowerCase() || '';
+        const email = item.querySelector('.small.text-muted')?.textContent.toLowerCase() || '';
+        
+        const corresponde = nome.includes(busca) || 
+                          cpf.includes(busca) || 
+                          email.includes(busca);
+        
+        item.style.display = corresponde ? 'flex' : 'none';
+    });
+}
+
+// ========== CONFIGURAR EVENTOS ADICIONAIS ==========
+document.addEventListener('DOMContentLoaded', function() {
+    // Botão Novo Perfil
+    const btnNovoPerfil = document.getElementById('btnNovoPerfil');
+    if (btnNovoPerfil) {
+        btnNovoPerfil.addEventListener('click', function() {
+            if (!temPermissao('gerenciar_perfis')) {
+                alert('❌ Você não tem permissão para criar perfis!');
+                return;
+            }
+            
+            perfilEditandoId = null;
+            abrirModalPerfil();
+        });
+    }
+    
+    // Botão salvar perfil
+    const salvarPerfilBtn = document.getElementById('salvarPerfilBtn');
+    if (salvarPerfilBtn) {
+        salvarPerfilBtn.addEventListener('click', salvarPerfil);
+    }
+    
+    // Configurar selects dos filtros de logs
+    const filtroLogUsuario = document.getElementById('filtroLogUsuario');
+    if (filtroLogUsuario) {
+        // Carregar usuários no filtro
+        SistemaStorage.usuarios.forEach(usuario => {
+            if (!usuario.master) {
+                const option = document.createElement('option');
+                option.value = usuario.id;
+                option.textContent = usuario.nome;
+                filtroLogUsuario.appendChild(option);
+            }
+        });
+    }
+});
+
+// ========== FUNÇÃO PARA CARREGAR SELECTS DE USUÁRIO NO MODAL ==========
+function carregarSelectsUsuario() {
+    // Esta função pode ser usada para carregar selects que precisam de dados de usuários
+    // Por exemplo, em filtros ou selects relacionados
+}
+
+// ========== FINALIZAÇÃO DO SISTEMA ==========
+console.log('✅ Sistema completamente inicializado!');

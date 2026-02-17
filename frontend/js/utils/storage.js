@@ -152,142 +152,181 @@ const SistemaStorage = {
         console.log('Usuário Master criado com sucesso!');
     },
     
-    // ========== CRIAR PERFIS PRÉ-DEFINIDOS ==========
+    // ========== PERFIS DEFINIDOS ==========
     criarPerfisPredefinidos: function() {
-        console.log('Criando perfis pré-definidos...');
-        
-        // PERFIL 1: MASTER
-        const perfilMaster = {
-            id: 1,
-            nome: "Master",
-            descricao: "Acesso total ao sistema",
-            permissoes: {
-                // Todas permissões ativas
-                ver_faltas: true,
-                registrar_falta: true,
-                editar_falta: true,
-                excluir_falta: true,
-                ver_docentes: true,
-                cadastrar_docente: true,
-                editar_docente: true,
-                excluir_docente: true,
-                ver_justificativas: true,
-                gerenciar_justificativas: true,
-                ver_relatorios: true,
-                gerar_relatorio_pdf: true,
-                acessar_configuracoes: true,
-                gerenciar_disciplinas: true,
-                gerenciar_cursos: true,
-                gerenciar_usuarios: true,
-                editar_usuario: true,
-                resetar_senhas: true,
-                visualizar_logs: true,
-                gerenciar_perfis: true
-            },
-            editavel: false,
-            predefinido: true,
-            data_criacao: new Date().toISOString()
-        };
-        
-        // PERFIL 2: GESTOR
-        const perfilGestor = {
-            id: 2,
-            nome: "Gestor",
-            descricao: "Gerenciamento completo (exceto Master)",
-            permissoes: {
-                ver_faltas: true,
-                registrar_falta: true,
-                editar_falta: true,
-                excluir_falta: true,
-                ver_docentes: true,
-                cadastrar_docente: true,
-                editar_docente: true,
-                excluir_docente: true,
-                ver_justificativas: true,
-                gerenciar_justificativas: true,
-                ver_relatorios: true,
-                gerar_relatorio_pdf: true,
-                acessar_configuracoes: true,
-                gerenciar_disciplinas: true,
-                gerenciar_cursos: true,
-                gerenciar_usuarios: true,
-                editar_usuario: true,
-                resetar_senhas: true,
-                visualizar_logs: true,
-                gerenciar_perfis: true
-            },
-            editavel: true,
-            predefinido: true,
-            data_criacao: new Date().toISOString()
-        };
-        
-        // PERFIL 3: OPERADOR
-        const perfilOperador = {
-            id: 3,
-            nome: "Operador",
-            descricao: "Operações básicas - pode editar docentes, não pode excluir",
-            permissoes: {
-                ver_faltas: true,
-                registrar_falta: true,
-                editar_falta: false,
-                excluir_falta: false,
-                ver_docentes: true,
-                cadastrar_docente: false,
-                editar_docente: true,
-                excluir_docente: false,
-                ver_justificativas: true,
-                gerenciar_justificativas: false,
-                ver_relatorios: true,
-                gerar_relatorio_pdf: false,
-                acessar_configuracoes: false,
-                gerenciar_disciplinas: false,
-                gerenciar_cursos: false,
-                gerenciar_usuarios: false,
-                editar_usuario: false,
-                resetar_senhas: false,
-                visualizar_logs: false,
-                gerenciar_perfis: false
-            },
-            editavel: true,
-            predefinido: true,
-            data_criacao: new Date().toISOString()
-        };
-        
-        // PERFIL 4: SUPERVISOR
-        const perfilSupervisor = {
-            id: 4,
-            nome: "Supervisor",
-            descricao: "Apenas visualização e relatórios",
-            permissoes: {
-                ver_faltas: true,
-                registrar_falta: false,
-                editar_falta: false,
-                excluir_falta: false,
-                ver_docentes: true,
-                cadastrar_docente: false,
-                editar_docente: false,
-                excluir_docente: false,
-                ver_justificativas: true,
-                gerenciar_justificativas: false,
-                ver_relatorios: true,
-                gerar_relatorio_pdf: true,
-                acessar_configuracoes: false,
-                gerenciar_disciplinas: false,
-                gerenciar_cursos: false,
-                gerenciar_usuarios: false,
-                editar_usuario: false,
-                resetar_senhas: false,
-                visualizar_logs: false,
-                gerenciar_perfis: false
-            },
-            editavel: true,
-            predefinido: true,
-            data_criacao: new Date().toISOString()
-        };
-        
-        this.perfis.push(perfilMaster, perfilGestor, perfilOperador, perfilSupervisor);
-        this.salvar('perfis', this.perfis);
-        console.log('4 perfis pré-definidos criados com sucesso!');
+    console.log('Criando perfis pré-definidos EXATOS...');
+    
+    // ========== PERFIL 1: MASTER (NÃO EDITÁVEL) ==========
+    const perfilMaster = {
+        id: 1,
+        nome: "Master",
+        descricao: "Acesso total ao sistema - Não editável",
+        permissoes: {
+            // CONTROLE DE FALTAS
+            ver_faltas: true,
+            registrar_falta: true,
+            editar_falta: true,
+            excluir_falta: true,
+            
+            // DADOS DO DOCENTE
+            ver_docentes: true,
+            cadastrar_docente: true,
+            editar_docente: true,
+            excluir_docente: true,
+            
+            // JUSTIFICATIVAS
+            ver_justificativas: true,
+            gerenciar_justificativas: true,
+            
+            // RELATÓRIOS E ESTATÍSTICAS
+            ver_relatorios: true,
+            gerar_relatorio_pdf: true,
+            
+            // CONFIGURAÇÕES
+            acessar_configuracoes: true,
+            gerenciar_disciplinas: true,
+            gerenciar_cursos: true,
+            gerenciar_justificativas: true,
+            gerenciar_usuarios: true,
+            editar_usuario: true,
+            resetar_senhas: true,
+            visualizar_logs: true,
+            gerenciar_perfis: true
+        },
+        editavel: false, // NÃO PODE SER EDITADO
+        predefinido: true,
+        data_criacao: new Date().toISOString()
+    };
+    
+    // ========== PERFIL 2: GESTOR (EDITÁVEL) ==========
+    const perfilGestor = {
+        id: 2,
+        nome: "Gestor",
+        descricao: "Gerenciamento completo (exceto Master)",
+        permissoes: {
+            // CONTROLE DE FALTAS
+            ver_faltas: true,
+            registrar_falta: true,
+            editar_falta: true,
+            excluir_falta: true,
+            
+            // DADOS DO DOCENTE
+            ver_docentes: true,
+            cadastrar_docente: true,
+            editar_docente: true,
+            excluir_docente: true,
+            
+            // JUSTIFICATIVAS
+            ver_justificativas: true,
+            gerenciar_justificativas: true,
+            
+            // RELATÓRIOS E ESTATÍSTICAS
+            ver_relatorios: true,
+            gerar_relatorio_pdf: true,
+            
+            // CONFIGURAÇÕES
+            acessar_configuracoes: true,
+            gerenciar_disciplinas: true,
+            gerenciar_cursos: true,
+            gerenciar_justificativas: true,
+            gerenciar_usuarios: true,
+            editar_usuario: true,
+            resetar_senhas: true,
+            visualizar_logs: true,
+            gerenciar_perfis: true
+        },
+        editavel: true, // PODE SER EDITADO
+        predefinido: true,
+        data_criacao: new Date().toISOString()
+    };
+    
+    // ========== PERFIL 3: OPERADOR (EDITÁVEL) ==========
+    const perfilOperador = {
+        id: 3,
+        nome: "Operador",
+        descricao: "Operações básicas - pode editar docentes, não pode excluir",
+        permissoes: {
+            // CONTROLE DE FALTAS
+            ver_faltas: true,
+            registrar_falta: true,
+            editar_falta: false,    // ✗
+            excluir_falta: false,   // ✗
+            
+            // DADOS DO DOCENTE
+            ver_docentes: true,
+            cadastrar_docente: false, // ✗
+            editar_docente: true,
+            excluir_docente: false,   // ✗
+            
+            // JUSTIFICATIVAS
+            ver_justificativas: true,
+            gerenciar_justificativas: false, // ✗
+            
+            // RELATÓRIOS E ESTATÍSTICAS
+            ver_relatorios: true,
+            gerar_relatorio_pdf: false, // ✗
+            
+            // CONFIGURAÇÕES
+            acessar_configuracoes: false, // ✗
+            gerenciar_disciplinas: false, // ✗
+            gerenciar_cursos: false,      // ✗
+            gerenciar_justificativas: false, // ✗
+            gerenciar_usuarios: false,    // ✗
+            editar_usuario: false,        // ✗
+            resetar_senhas: false,        // ✗
+            visualizar_logs: false,       // ✗
+            gerenciar_perfis: false       // ✗
+        },
+        editavel: true, // PODE SER EDITADO
+        predefinido: true,
+        data_criacao: new Date().toISOString()
+    };
+    
+    // ========== PERFIL 4: SUPERVISOR (EDITÁVEL) ==========
+    const perfilSupervisor = {
+        id: 4,
+        nome: "Supervisor",
+        descricao: "Apenas visualização e relatórios",
+        permissoes: {
+            // CONTROLE DE FALTAS
+            ver_faltas: true,
+            registrar_falta: false,   // ✗
+            editar_falta: false,      // ✗
+            excluir_falta: false,     // ✗
+            
+            // DADOS DO DOCENTE
+            ver_docentes: true,
+            cadastrar_docente: false, // ✗
+            editar_docente: false,    // ✗
+            excluir_docente: false,   // ✗
+            
+            // JUSTIFICATIVAS
+            ver_justificativas: true,
+            gerenciar_justificativas: false, // ✗
+            
+            // RELATÓRIOS E ESTATÍSTICAS
+            ver_relatorios: true,
+            gerar_relatorio_pdf: true,
+            
+            // CONFIGURAÇÕES
+            acessar_configuracoes: false, // ✗
+            gerenciar_disciplinas: false, // ✗
+            gerenciar_cursos: false,      // ✗
+            gerenciar_justificativas: false, // ✗
+            gerenciar_usuarios: false,    // ✗
+            editar_usuario: false,        // ✗
+            resetar_senhas: false,        // ✗
+            visualizar_logs: false,       // ✗
+            gerenciar_perfis: false       // ✗
+        },
+        editavel: true, // PODE SER EDITADO
+        predefinido: true,
+        data_criacao: new Date().toISOString()
+    };
+    
+    this.perfis.push(perfilMaster, perfilGestor, perfilOperador, perfilSupervisor);
+    this.salvar('perfis', this.perfis);
+    console.log('4 perfis criados EXATAMENTE como diagrama!');
     },
 
         // ========== OPERAÇÕES DE USUÁRIOS ==========
@@ -520,8 +559,20 @@ const SistemaStorage = {
             console.error('Não é permitido editar perfil predefinido:', this.perfis[index].nome);
             return false;
         }
-        
-        this.perfis[index] = { ...this.perfis[index], ...dadosAtualizados };
+
+
+        // Atualizar apenas os campos permitidos
+        const perfilAtualizado = { ...this.perfis[index] };
+    
+        if (dadosAtualizados.permissoes) {
+        perfilAtualizado.permissoes = dadosAtualizados.permissoes;
+        }
+    
+        if (dadosAtualizados.descricao !== undefined) {
+        perfilAtualizado.descricao = dadosAtualizados.descricao;
+        }
+    
+        this.perfis[index] = perfilAtualizado;
         this.salvar('perfis', this.perfis);
         
         // Registrar log
@@ -559,6 +610,8 @@ const SistemaStorage = {
         
         return true;
     },
+
+    
 
         // ========== SISTEMA DE LOGS ==========
     registrarLog: function(acao, modulo, detalhes, usuarioId = null) {
@@ -717,6 +770,7 @@ const SistemaStorage = {
         return null;
     },
     
+    
     // ========== CARREGAR E SALVAR TODOS ==========
     carregarTodos: function() {
         this.disciplinas = this.carregar('disciplinas') || [];
@@ -746,7 +800,6 @@ const SistemaStorage = {
 
     
     // ========== DADOS PADRÃO ==========
-
     
     criarDadosPadrao: function() {
         console.log('Criando dados padrão...');
@@ -1175,4 +1228,19 @@ SistemaStorage.inicializar();
 
 // Exportar para uso global
 window.SistemaStorage = SistemaStorage;
+
+// Adicionar este método para verificar se há logs antigos
+SistemaStorage.verificarLogsAntigos = function() {
+    const agora = new Date();
+    const umMesAtras = new Date();
+    umMesAtras.setMonth(umMesAtras.getMonth() - 1);
+    
+    const logsAntigos = this.logs.filter(log => {
+        const dataLog = new Date(log.data);
+        return dataLog < umMesAtras;
+    }).length;
+    
+    return logsAntigos;
+};
+
 console.log('SistemaStorage disponível globalmente');

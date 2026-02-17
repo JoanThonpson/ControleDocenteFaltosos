@@ -131,7 +131,6 @@ function criarFormularioAdmin() {
 }
 
 // Configurar eventos do formulário CPF
-// Configurar eventos do formulário CPF
 function configurarFormularioCPF() {
     setTimeout(() => {
         const form = document.getElementById('loginFormCpf');
