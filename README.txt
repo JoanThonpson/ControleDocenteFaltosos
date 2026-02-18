@@ -194,25 +194,6 @@ Dashboard inicial: Com gráficos de faltas por mês/docente
 ---------------------------------------------------------------------------------------------------------------
 
 
-
-
-***GESTÃO DE USUÁRIOS********************
-ETAPA 1: ESTRUTURA DE DADOS ✅
-ETAPA 2: MODIFICAÇÃO DO LOGIN ✅
-ETAPA 3: SISTEMA DE LOGS ✅
-ETAPA 4: VISUALIZAÇÃO DOS LOGS ✅
-ETAPA 5: FILTROS AVANÇADOS ✅
-ETAPA 6: EXPORTAÇÃO ✅ (apenas exportar, não limpar)
-
-🔍 FILTRO POR USUÁRIO:
-[Selecione um usuário...]
-
-Master (000.000.000-00) - Master - Ativo [✏️editar] [🔒excluir]
-  ^-- BOTÕES INATIVOS (cinza, não clicáveis)
-
-João Silva (123.456.789-00) - Gestor - Ativo [✏️ Editar] [🗑️ Excluir*]
-Maria Santos (987.654.321-00) - Operador - Ativo [✏️ Editar] [🗑️ Excluir*]
-Pedro Costa (456.789.123-00) - Supervisor - Inativo [✏️ Editar] [🗑️ Excluir*]
 Carla Lima (789.123.456-00) - Operador - Ativo [✏️ Editar] [🗑️ Excluir*]
 
 *Só pode excluir se não tiver registros (faltas, logs, etc.)
