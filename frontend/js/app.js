@@ -571,7 +571,7 @@ function aplicarPermissoesConfiguracoes() {
     }
 }
 
-// Função para verificar permissão antes de executar ação
+// ========== FUNÇÃO VERIFICAR PERMISSÃO EXECUÇÃO ==========
 function verificarPermissaoExecucao(acao, callback, mensagemErro = 'Você não tem permissão para esta ação!') {
     if (temPermissao(acao)) {
         callback();
@@ -580,7 +580,57 @@ function verificarPermissaoExecucao(acao, callback, mensagemErro = 'Você não t
     }
 }
 
-// Modificar funções existentes para verificar permissões
+// ========== FUNÇÃO TOGGLE CAMPO JUSTIFICATIVA ==========
+function toggleCampoJustificativa() {
+    console.log('Toggle justificativa chamado');
+    
+    const faltaJustificada = document.getElementById('faltaJustificada');
+    const justificativaContainer = document.getElementById('justificativaContainer');
+    const justificativaSelect = document.getElementById('justificativaSelect');
+    
+    if (!faltaJustificada || !justificativaContainer) {
+        console.log('Elementos não encontrados');
+        return;
+    }
+    
+    console.log('Valor selecionado:', faltaJustificada.value);
+    
+    if (faltaJustificada.value === 'sim') {
+        console.log('Mostrando campo de justificativa');
+        justificativaContainer.classList.remove('hidden');
+        
+        // Se não houver justificativas cadastradas, mostrar mensagem
+        if (justificativaSelect && justificativaSelect.options.length <= 1) {
+            const option = document.createElement('option');
+            option.value = '';
+            option.textContent = 'Nenhuma justificativa cadastrada';
+            option.disabled = true;
+            option.selected = true;
+            justificativaSelect.innerHTML = '';
+            justificativaSelect.appendChild(option);
+        }
+    } else {
+        console.log('Escondendo campo de justificativa');
+        justificativaContainer.classList.add('hidden');
+        if (justificativaSelect) justificativaSelect.value = '';
+    }
+}
+
+// Configurar evento do select de justificativa
+document.addEventListener('DOMContentLoaded', function() {
+    const faltaJustificada = document.getElementById('faltaJustificada');
+    if (faltaJustificada) {
+        // Remover listeners antigos para evitar duplicação
+        const novoSelect = faltaJustificada.cloneNode(true);
+        faltaJustificada.parentNode.replaceChild(novoSelect, faltaJustificada);
+        
+        // Adicionar novo listener
+        novoSelect.addEventListener('change', toggleCampoJustificativa);
+        console.log('Evento de justificativa configurado');
+    }
+});
+
+
 // ========== MODIFICAÇÕES NAS FUNÇÕES EXISTENTES ==========
 
 // Substituir chamadas diretas por verificações de permissão
@@ -630,6 +680,7 @@ window.excluirDocente = function(id) {
     }, 'Você não tem permissão para excluir docentes!');
 };
 
+// ========== FUNÇÃO EDITAR FALTA (CORRIGIDA) ==========
 window.editarFalta = function(id) {
     verificarPermissaoExecucao('editar_falta', function() {
         console.log('Editando falta ID:', id);
@@ -642,10 +693,87 @@ window.editarFalta = function(id) {
         
         faltaEditandoId = id;
         
-        // ... (resto da função permanece igual)
+        // Primeiro, resetar o formulário
+        const form = document.getElementById('faltaForm');
+        if (form) form.reset();
         
+        // Preencher docente primeiro
+        const docenteSelect = document.getElementById('docenteSelect');
+        if (docenteSelect) {
+            docenteSelect.value = falta.docenteId;
+        }
+        
+        // Carregar selects com base no docente
+        carregarSelectsModalFalta(falta.docenteId);
+        
+        // Aguardar selects carregarem para setar os valores
+        setTimeout(() => {
+            console.log('Preenchendo dados da falta...');
+            
+            const disciplinaSelect = document.getElementById('disciplinaSelect');
+            const cursoSelect = document.getElementById('cursoSelect');
+            const quantidadeFaltas = document.getElementById('quantidadeFaltas');
+            const faltaJustificada = document.getElementById('faltaJustificada');
+            const faltaData = document.getElementById('faltaData');
+            const horarioInicio = document.getElementById('faltaHorarioInicio');
+            const horarioFim = document.getElementById('faltaHorarioFim');
+            const observacoes = document.getElementById('faltaObservacoes');
+            
+            if (disciplinaSelect) disciplinaSelect.value = falta.disciplina;
+            if (cursoSelect) cursoSelect.value = falta.curso;
+            if (quantidadeFaltas) quantidadeFaltas.value = falta.quantidadeFaltas;
+            if (faltaJustificada) {
+                faltaJustificada.value = falta.justificada ? 'sim' : 'nao';
+                // Chamar toggle para mostrar/esconder campo de justificativa
+                toggleCampoJustificativa();
+            }
+            if (faltaData) faltaData.value = falta.data;
+            if (horarioInicio) horarioInicio.value = falta.horarioInicio;
+            if (horarioFim) horarioFim.value = falta.horarioFim;
+            if (observacoes) observacoes.value = falta.observacoes || '';
+            
+            // Se for justificada, preencher a justificativa
+            if (falta.justificada && falta.justificativa) {
+                const justificativaSelect = document.getElementById('justificativaSelect');
+                if (justificativaSelect) {
+                    // Aguardar um pouco mais para o select ser populado
+                    setTimeout(() => {
+                        justificativaSelect.value = falta.justificativa;
+                        console.log('Justificativa preenchida:', falta.justificativa);
+                    }, 200);
+                }
+            }
+            
+        }, 500); // Aumentei o timeout para garantir
+        
+        // Atualizar título do modal
+        const docente = SistemaStorage.getDocentePorId(falta.docenteId);
+        const modalTitle = document.getElementById('faltaModalTitle');
+        if (modalTitle) {
+            modalTitle.textContent = `Editar Falta - ${docente?.nome || 'Docente'}`;
+        }
+        
+        // Mostrar modal
+        const modalElement = document.getElementById('addFaltaModal');
+        if (modalElement) {
+            const modal = new bootstrap.Modal(modalElement);
+            modal.show();
+        }
     }, 'Você não tem permissão para editar faltas!');
 };
+
+// ========== FUNÇÃO VALIDAR DOCENTE SELECIONADO ==========
+function validarDocenteSelecionado(docenteId) {
+    if (!docenteId) return true;
+    
+    const docente = SistemaStorage.getDocentePorId(docenteId);
+    if (!docente) return false;
+    
+    const temDisciplinas = docente.disciplinas && docente.disciplinas.length > 0;
+    const temCursos = docente.cursos && docente.cursos.length > 0;
+    
+    return temDisciplinas && temCursos;
+}
 
 window.excluirFalta = function(id) {
     verificarPermissaoExecucao('excluir_falta', function() {
@@ -849,6 +977,119 @@ function configurarInterface() {
     // Definir filtro "Todos" como ativo inicialmente
     setFiltroAtivo('todos');
 }
+
+// ========== FUNÇÃO SALVAR USUÁRIO ==========
+function salvarUsuario() {
+    console.log('📝 [DEBUG] salvarUsuario INICIADO');
+    
+    const usuarioId = usuarioEditandoId;
+    const nome = document.getElementById('usuarioNome')?.value.trim();
+    const cpf = document.getElementById('usuarioCPF')?.value;
+    const email = document.getElementById('usuarioEmail')?.value.trim();
+    const perfilId = parseInt(document.getElementById('usuarioPerfil')?.value);
+    const senha = document.getElementById('usuarioSenha')?.value;
+    const confirmarSenha = document.getElementById('usuarioConfirmarSenha')?.value;
+    const ativo = document.getElementById('usuarioAtivo')?.checked;
+    
+    console.log('📝 [DEBUG] Dados do formulário:', { 
+        usuarioId, nome, cpf, email, perfilId, 
+        senha: senha ? '***' : null, 
+        confirmarSenha: confirmarSenha ? '***' : null, 
+        ativo 
+    });
+    
+    // Validações
+    if (!nome) {
+        alert('❌ Digite o nome do usuário!');
+        return;
+    }
+    
+    if (!cpf || cpf.length !== 14) {
+        alert('❌ Digite um CPF válido!');
+        return;
+    }
+    
+    if (!perfilId) {
+        alert('❌ Selecione um perfil!');
+        return;
+    }
+    
+    // Validar senha se for novo usuário
+    if (!usuarioId) {
+        if (senha && senha !== confirmarSenha) {
+            alert('❌ As senhas não coincidem!');
+            return;
+        }
+        
+        if (senha && senha.length < 6) {
+            alert('❌ A senha deve ter pelo menos 6 caracteres!');
+            return;
+        }
+    }
+    
+    // Preparar dados do usuário
+    const dadosUsuario = {
+        nome: nome,
+        cpf: cpf,
+        email: email || '',
+        perfil_id: perfilId,
+        ativo: ativo !== false
+    };
+    
+    // Adicionar senha se for novo usuário
+    if (!usuarioId) {
+        dadosUsuario.senha_hash = senha || gerarSenhaAleatoria();
+        console.log('📝 [DEBUG] Novo usuário, senha gerada:', dadosUsuario.senha_hash);
+    }
+    
+    console.log('📝 [DEBUG] Chamando SistemaStorage.adicionarUsuario...');
+    
+    let resultado = false;
+    let mensagem = '';
+    
+    if (usuarioId) {
+        // Editar usuário existente
+        resultado = SistemaStorage.atualizarUsuario(usuarioId, dadosUsuario);
+        mensagem = resultado ? 
+            '✅ Usuário atualizado com sucesso!' : 
+            '❌ Erro ao atualizar usuário!';
+    } else {
+        // Novo usuário
+        const id = SistemaStorage.adicionarUsuario(dadosUsuario);
+        resultado = !!id;
+        mensagem = resultado ? 
+            '✅ Usuário cadastrado com sucesso!' : 
+            '❌ Erro ao cadastrar usuário!';
+        
+        // Mostrar senha gerada
+        if (resultado && !senha) {
+            const senhaGerada = dadosUsuario.senha_hash;
+            const senhaGeradaElement = document.getElementById('senhaGerada');
+            const senhaContainer = document.getElementById('senhaGeradaContainer');
+            
+            if (senhaGeradaElement) {
+                senhaGeradaElement.textContent = senhaGerada;
+            }
+            if (senhaContainer) {
+                senhaContainer.style.display = 'block';
+            }
+        }
+    }
+    
+    if (resultado) {
+        // Fechar modal
+        const modal = bootstrap.Modal.getInstance(document.getElementById('addUsuarioModal'));
+        if (modal) modal.hide();
+        
+        // ATUALIZAR LISTA DE USUÁRIOS IMEDIATAMENTE
+        carregarListaUsuarios();
+        
+        alert(mensagem);
+    } else {
+        alert(mensagem);
+    }
+}
+
 
 // ========== CONFIGURAR EVENTOS ==========
 
@@ -1151,16 +1392,25 @@ function abrirModalUsuario(id = null) {
 // ========== FUNÇÃO CARREGAR LISTA DE USUÁRIOS ==========
 
 function carregarListaUsuarios() {
+    console.log('📝 [DEBUG] carregarListaUsuarios INICIADO');
+    
     const lista = document.getElementById('listaUsuarios');
     if (!lista) {
-        console.log('Elemento #listaUsuarios não encontrado');
+        console.log('⚠️ [DEBUG] Elemento #listaUsuarios não encontrado');
         return;
     }
     
-    lista.innerHTML = '';
+    // VERIFICAR DIRETAMENTE DO LOCALSTORAGE
+    const usuariosStorage = localStorage.getItem('sistema_faltas_usuarios');
+    console.log('📝 [DEBUG] Usuários no localStorage:', usuariosStorage ? JSON.parse(usuariosStorage).length : 0);
     
-    // Obter usuários (exceto Master para a lista)
-    const usuarios = SistemaStorage.usuarios.filter(u => !u.master);
+    // USAR TODOS OS USUÁRIOS (FILTRAR APENAS O MASTER SE QUISER)
+    console.log('📝 [DEBUG] Usuários no SistemaStorage:', SistemaStorage.usuarios.length);
+    
+    // 🔴 CORREÇÃO: Mostrar todos os usuários, exceto o Master
+    const usuarios = SistemaStorage.usuarios.filter(u => u.id !== 1); // Remove apenas o Master
+    
+    console.log('📝 [DEBUG] Usuários para exibir:', usuarios.length);
     
     if (usuarios.length === 0) {
         lista.innerHTML = `
@@ -2441,18 +2691,19 @@ function abrirModalFalta() {
     }
 }
 
+// ========== FUNÇÃO CARREGAR SELECTS MODAL FALTA ==========
 function carregarSelectsModalFalta(docenteId = null) {
-    // Carregar disciplinas (todas ou apenas do docente)
+    console.log('Carregando selects para falta. Docente ID:', docenteId);
+    
+    // Carregar disciplinas
     const disciplinaSelect = document.getElementById('disciplinaSelect');
     if (disciplinaSelect) {
         disciplinaSelect.innerHTML = '<option value="">Selecione uma disciplina</option>';
         
         let disciplinas = [];
         if (docenteId) {
-            // Apenas disciplinas do docente selecionado
             disciplinas = SistemaStorage.getDisciplinasPorDocente(docenteId);
         } else {
-            // Todas as disciplinas do sistema (modo padrão)
             disciplinas = SistemaStorage.getDisciplinasOrdenadas();
         }
         
@@ -2463,25 +2714,18 @@ function carregarSelectsModalFalta(docenteId = null) {
             disciplinaSelect.appendChild(option);
         });
         
-        // Se houver apenas uma disciplina, selecione-a automaticamente
-        if (disciplinas.length === 1) {
-            setTimeout(() => {
-                disciplinaSelect.value = disciplinas[0];
-            }, 100);
-        }
+        console.log('Disciplinas carregadas:', disciplinas.length);
     }
     
-    // Carregar cursos (todas ou apenas do docente)
+    // Carregar cursos
     const cursoSelect = document.getElementById('cursoSelect');
     if (cursoSelect) {
         cursoSelect.innerHTML = '<option value="">Selecione um curso</option>';
         
         let cursos = [];
         if (docenteId) {
-            // Apenas cursos do docente selecionado
             cursos = SistemaStorage.getCursosPorDocente(docenteId);
         } else {
-            // Todos os cursos do sistema (modo padrão)
             cursos = SistemaStorage.getCursosOrdenados();
         }
         
@@ -2492,28 +2736,28 @@ function carregarSelectsModalFalta(docenteId = null) {
             cursoSelect.appendChild(option);
         });
         
-        // Se houver apenas um curso, selecione-o automaticamente
-        if (cursos.length === 1) {
-            setTimeout(() => {
-                cursoSelect.value = cursos[0];
-            }, 100);
-        }
+        console.log('Cursos carregados:', cursos.length);
     }
     
-    // Carregar justificativas (sempre todas)
+    // Carregar justificativas
     const justificativaSelect = document.getElementById('justificativaSelect');
     if (justificativaSelect) {
         justificativaSelect.innerHTML = '<option value="">Selecione uma justificativa</option>';
-        SistemaStorage.getJustificativasOrdenadas().forEach(justificativa => {
+        
+        const justificativas = SistemaStorage.getJustificativasOrdenadas();
+        justificativas.forEach(justificativa => {
             const option = document.createElement('option');
             option.value = justificativa;
             option.textContent = justificativa;
             justificativaSelect.appendChild(option);
         });
+        
+        console.log('Justificativas carregadas:', justificativas.length);
     }
 }
 
-// Função para salvar falta
+
+// ========== FUNÇÃO SALVAR FALTA ==========
 function salvarFalta() {
     console.log('Executando salvarFalta()...', { editando: faltaEditandoId });
     
@@ -2529,10 +2773,10 @@ function salvarFalta() {
     const observacoes = document.getElementById('faltaObservacoes')?.value;
     
     // Validação adicional: docente deve ter disciplinas e cursos
-if (!validarDocenteSelecionado(docenteId)) {
-    alert('❌ Este docente não tem disciplinas ou cursos cadastrados. Edite o docente primeiro.');
-    return;
-}
+    if (!validarDocenteSelecionado(docenteId)) {
+        alert('❌ Este docente não tem disciplinas ou cursos cadastrados. Edite o docente primeiro.');
+        return;
+    }
 
     console.log('Dados da falta:', {
         docenteId, disciplina, curso, quantidade, faltaJustificada, 
