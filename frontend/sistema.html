@@ -1417,5 +1417,15 @@
         </div>
     </div>
 </div>
+<script>
+        // Verificação dupla (caso o primeiro script falhe)
+        (function() {
+            const authData = localStorage.getItem('sistema_faltas_auth');
+            if (!authData && window.location.pathname.includes('sistema.html')) {
+                console.log('⚠️ Verificação adicional: redirecionando...');
+                window.location.replace('login.html');
+            }
+        })();
+    </script>
 </body>
 </html>

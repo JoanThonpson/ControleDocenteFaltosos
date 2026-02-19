@@ -1,23 +1,28 @@
 // js/app.js -- Arquivo principal do sistema de controle de faltas docentes
 console.log('Sistema iniciando...');
 
-// ========== FUNÇÕES AUXILIARES GLOBAIS ==========
-
-// Função para gerar senha aleatória
-function gerarSenhaAleatoria(tamanho = 10) {
-    const caracteres = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789@#$%&';
-    let senha = '';
-    for (let i = 0; i < tamanho; i++) {
-        senha += caracteres.charAt(Math.floor(Math.random() * caracteres.length));
+// ========== FUNÇÃO PARA MOSTRAR/OCULTAR SENHA ==========
+function toggleSenha(inputId, botao) {
+    const input = document.getElementById(inputId);
+    if (!input) return;
+    
+    const icon = botao.querySelector('i');
+    
+    if (input.type === 'password') {
+        input.type = 'text';
+        icon.classList.remove('fa-eye');
+        icon.classList.add('fa-eye-slash');
+    } else {
+        input.type = 'password';
+        icon.classList.remove('fa-eye-slash');
+        icon.classList.add('fa-eye');
     }
-    return senha;
 }
 
 // ========== VARIÁVEIS GLOBAIS PARA CONTROLE ==========
 let docenteEditandoId = null; // Para controlar edição de docente
 let faltaEditandoId = null;   // Para controlar edição de falta
 let usuarioEditandoId = null; // PARA CONTROLE DE EDIÇÃO DE USUÁRIO (ADICIONE ESTA LINHA)
-let perfilEditandoId = null;  // Para controle de edição de perfil (se necessário)
 let filtroStatusAtual = 'todos'; // 'todos', 'ativos', 'inativos'
 let buscaAtual = ''; // Termo de busca atual
 
@@ -233,9 +238,11 @@ function verificarAutenticacao() {
 
 // ========== SISTEMA DE PERMISSÕES ==========
 
-// função para editar permissões:
+// ========== FUNÇÕES PARA EDIÇÃO DE PERMISSÕES ==========
 
 window.editarPermissoesPerfil = function(perfilId) {
+    console.log('Editando permissões do perfil ID:', perfilId);
+    
     if (!temPermissao('gerenciar_perfis')) {
         alert('❌ Você não tem permissão para editar perfis!');
         return;
@@ -247,127 +254,134 @@ window.editarPermissoesPerfil = function(perfilId) {
         return;
     }
     
-    // Verificar se pode editar
-    if (!perfil.editavel) {
-        alert('❌ Este perfil não pode ser editado!');
+    // Verificar se é Master (não editável)
+    if (perfil.nome === 'Master') {
+        alert('❌ O perfil Master não pode ser editado!');
         return;
     }
     
-    // Criar modal de edição
-    const modalHTML = `
-        <div class="modal fade" id="editarPermissoesModal">
-            <div class="modal-dialog modal-lg">
-                <div class="modal-content">
-                    <div class="modal-header">
-                        <h5 class="modal-title">
-                            <i class="fas fa-edit me-2"></i>
-                            Editar Permissões: ${perfil.nome}
-                        </h5>
-                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                    </div>
-                    <div class="modal-body">
-                        <p class="text-muted mb-3">${perfil.descricao}</p>
-                        
-                        <div class="accordion" id="accordionPermissoes">
-                            <!-- As permissões serão geradas dinamicamente -->
-                        </div>
-                    </div>
-                    <div class="modal-footer">
-                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                        <button type="button" class="btn btn-primary" id="salvarPermissoesBtn">Salvar Alterações</button>
-                    </div>
-                </div>
-            </div>
-        </div>
-    `;
+    perfilEditandoId = perfilId;
     
-    // Inserir modal no DOM
-    const modalContainer = document.createElement('div');
-    modalContainer.innerHTML = modalHTML;
-    document.body.appendChild(modalContainer);
+    // Atualizar título do modal
+    document.getElementById('perfilNomeTitulo').textContent = perfil.nome;
     
-    // Gerar checkboxes de permissões organizadas por módulo
-    const accordion = modalContainer.querySelector('#accordionPermissoes');
+    // Mostrar/ocultar warning do Master
+    document.getElementById('masterWarning').style.display = 'none';
     
-    // Módulo 1: CONTROLE DE FALTAS
-    let modulo1 = criarModuloPermissoes(
-        'CONTROLE DE FALTAS',
-        'collapseFaltas',
-        [
-            { id: 'ver_faltas', label: 'Visualizar faltas', checked: perfil.permissoes.ver_faltas },
-            { id: 'registrar_falta', label: 'Registrar nova falta', checked: perfil.permissoes.registrar_falta },
-            { id: 'editar_falta', label: 'Editar falta', checked: perfil.permissoes.editar_falta },
-            { id: 'excluir_falta', label: 'Excluir faltas', checked: perfil.permissoes.excluir_falta }
-        ],
-        true // Primeiro aberto
-    );
+    // Carregar permissões atuais
+    carregarPermissoesNoModal(perfil);
     
-    // Módulo 2: DADOS DO DOCENTE
-    let modulo2 = criarModuloPermissoes(
-        'DADOS DO DOCENTE',
-        'collapseDocentes',
-        [
-            { id: 'ver_docentes', label: 'Visualizar docentes', checked: perfil.permissoes.ver_docentes },
-            { id: 'cadastrar_docente', label: 'Cadastrar novo docente', checked: perfil.permissoes.cadastrar_docente },
-            { id: 'editar_docente', label: 'Editar docente', checked: perfil.permissoes.editar_docente },
-            { id: 'excluir_docente', label: 'Excluir docentes', checked: perfil.permissoes.excluir_docente }
-        ]
-    );
-    
-    // Módulo 3: JUSTIFICATIVAS
-    let modulo3 = criarModuloPermissoes(
-        'JUSTIFICATIVAS',
-        'collapseJustificativas',
-        [
-            { id: 'ver_justificativas', label: 'Visualizar justificativas', checked: perfil.permissoes.ver_justificativas },
-            { id: 'gerenciar_justificativas', label: 'Cadastrar/editar justificativas', checked: perfil.permissoes.gerenciar_justificativas }
-        ]
-    );
-    
-    // Módulo 4: RELATÓRIOS E ESTATÍSTICAS
-    let modulo4 = criarModuloPermissoes(
-        'RELATÓRIOS E ESTATÍSTICAS',
-        'collapseRelatorios',
-        [
-            { id: 'ver_relatorios', label: 'Visualizar relatórios', checked: perfil.permissoes.ver_relatorios },
-            { id: 'gerar_relatorio_pdf', label: 'Gerar relatório PDF', checked: perfil.permissoes.gerar_relatorio_pdf }
-        ]
-    );
-    
-    // Módulo 5: CONFIGURAÇÕES
-    let modulo5 = criarModuloPermissoes(
-        'CONFIGURAÇÕES',
-        'collapseConfiguracoes',
-        [
-            { id: 'acessar_configuracoes', label: 'Acessar configurações', checked: perfil.permissoes.acessar_configuracoes },
-            { id: 'gerenciar_disciplinas', label: 'Gerenciar disciplinas', checked: perfil.permissoes.gerenciar_disciplinas },
-            { id: 'gerenciar_cursos', label: 'Gerenciar cursos', checked: perfil.permissoes.gerenciar_cursos },
-            { id: 'gerenciar_justificativas', label: 'Gerenciar justificativas', checked: perfil.permissoes.gerenciar_justificativas },
-            { id: 'gerenciar_usuarios', label: 'Gerenciar usuários', checked: perfil.permissoes.gerenciar_usuarios },
-            { id: 'editar_usuario', label: 'Editar usuário', checked: perfil.permissoes.editar_usuario },
-            { id: 'resetar_senhas', label: 'Resetar senhas', checked: perfil.permissoes.resetar_senhas },
-            { id: 'visualizar_logs', label: 'Visualizar logs', checked: perfil.permissoes.visualizar_logs },
-            { id: 'gerenciar_perfis', label: 'Gerenciar perfis', checked: perfil.permissoes.gerenciar_perfis }
-        ]
-    );
-    
-    accordion.innerHTML = modulo1 + modulo2 + modulo3 + modulo4 + modulo5;
-    
-    // Mostrar modal
-    const modal = new bootstrap.Modal(document.getElementById('editarPermissoesModal'));
+    // Abrir modal
+    const modalElement = document.getElementById('editarPermissoesModal');
+    const modal = new bootstrap.Modal(modalElement);
     modal.show();
-    
-    // Configurar botão salvar
-    const salvarBtn = modalContainer.querySelector('#salvarPermissoesBtn');
-    salvarBtn.addEventListener('click', function() {
-        salvarPermissoesPerfil(perfilId, modalContainer);
-    });
-    
-    // Remover modal do DOM quando fechar
-    modalContainer.addEventListener('hidden.bs.modal', function() {
-        document.body.removeChild(modalContainer);
-    });
 };
+
+// Função para carregar as permissões no modal
+function carregarPermissoesNoModal(perfil) {
+    // Lista de todas as permissões possíveis
+    const permissoes = [
+        'ver_faltas', 'registrar_falta', 'editar_falta', 'excluir_falta',
+        'ver_docentes', 'cadastrar_docente', 'editar_docente', 'excluir_docente',
+        'ver_justificativas', 'gerenciar_justificativas',
+        'ver_relatorios', 'gerar_relatorio_pdf',
+        'acessar_configuracoes', 'gerenciar_disciplinas', 'gerenciar_cursos',
+        'gerenciar_usuarios', 'editar_usuario', 'resetar_senhas',
+        'visualizar_logs', 'gerenciar_perfis'
+    ];
+    
+    // Para cada permissão, marcar o checkbox se estiver ativa
+    permissoes.forEach(permissao => {
+        const checkbox = document.getElementById(`perm_${permissao}`);
+        if (checkbox) {
+            checkbox.checked = perfil.permissoes[permissao] === true;
+        }
+    });
+}
+
+// Função para selecionar todos os checkboxes de um módulo
+window.selecionarTodosModulo = function(modulo) {
+    let checkboxes = [];
+    
+    if (modulo === 'todos') {
+        // Selecionar TODOS os checkboxes
+        checkboxes = document.querySelectorAll('.permissao-checkbox');
+    } else {
+        // Selecionar apenas os de um módulo específico
+        checkboxes = document.querySelectorAll(`.permissao-checkbox[data-modulo="${modulo}"]`);
+    }
+    
+    checkboxes.forEach(cb => cb.checked = true);
+};
+
+// Função para limpar todos os checkboxes de um módulo
+window.limparTodosModulo = function(modulo) {
+    let checkboxes = [];
+    
+    if (modulo === 'todos') {
+        checkboxes = document.querySelectorAll('.permissao-checkbox');
+    } else {
+        checkboxes = document.querySelectorAll(`.permissao-checkbox[data-modulo="${modulo}"]`);
+    }
+    
+    checkboxes.forEach(cb => cb.checked = false);
+};
+
+// Função para salvar as permissões
+function salvarPermissoes() {
+    if (!perfilEditandoId) {
+        alert('❌ Erro: ID do perfil não encontrado!');
+        return;
+    }
+    
+    const perfil = SistemaStorage.getPerfilPorId(perfilEditandoId);
+    if (!perfil) {
+        alert('❌ Perfil não encontrado!');
+        return;
+    }
+    
+    // Coletar todas as permissões dos checkboxes
+    const novasPermissoes = {};
+    const checkboxes = document.querySelectorAll('.permissao-checkbox');
+    
+    checkboxes.forEach(checkbox => {
+        const permissao = checkbox.getAttribute('data-permissao');
+        novasPermissoes[permissao] = checkbox.checked;
+    });
+    
+    // Confirmar com o usuário
+    if (!confirm(`Deseja salvar as novas permissões para o perfil "${perfil.nome}"?`)) {
+        return;
+    }
+    
+    // Atualizar no storage
+    if (SistemaStorage.atualizarPerfil(perfilEditandoId, { permissoes: novasPermissoes })) {
+        // Fechar modal
+        const modal = bootstrap.Modal.getInstance(document.getElementById('editarPermissoesModal'));
+        if (modal) modal.hide();
+        
+        // Atualizar lista de perfis
+        carregarListaPerfis();
+        
+        // Se o usuário atual tiver este perfil, aplicar novas permissões
+        const usuarioAtual = SistemaStorage.getUsuarioAtual();
+        if (usuarioAtual && usuarioAtual.perfil_id === perfilEditandoId) {
+            aplicarPermissoesInterface();
+        }
+        
+        alert(`✅ Permissões do perfil "${perfil.nome}" atualizadas com sucesso!`);
+    } else {
+        alert('❌ Erro ao salvar permissões!');
+    }
+}
+
+// Configurar evento do botão salvar
+document.addEventListener('DOMContentLoaded', function() {
+    const salvarBtn = document.getElementById('salvarPermissoesBtn');
+    if (salvarBtn) {
+        salvarBtn.addEventListener('click', salvarPermissoes);
+    }
+});
 
 // Função auxiliar para criar módulo de permissões
 function criarModuloPermissoes(titulo, id, permissoes, show = false) {
@@ -987,18 +1001,19 @@ function salvarUsuario() {
     const cpf = document.getElementById('usuarioCPF')?.value;
     const email = document.getElementById('usuarioEmail')?.value.trim();
     const perfilId = parseInt(document.getElementById('usuarioPerfil')?.value);
-    const senha = document.getElementById('usuarioSenha')?.value;
-    const confirmarSenha = document.getElementById('usuarioConfirmarSenha')?.value;
     const ativo = document.getElementById('usuarioAtivo')?.checked;
     
+    // 🔴 USANDO OS IDs CORRETOS
+    const senha = document.getElementById('usuarioSenha')?.value;
+    const confirmarSenha = document.getElementById('usuarioConfirmarSenha')?.value;
+    const senhaGeradaContainer = document.getElementById('senhaGeradaContainer');
+    
     console.log('📝 [DEBUG] Dados do formulário:', { 
-        usuarioId, nome, cpf, email, perfilId, 
-        senha: senha ? '***' : null, 
-        confirmarSenha: confirmarSenha ? '***' : null, 
-        ativo 
+        usuarioId, nome, cpf, email, perfilId, ativo,
+        temSenha: !!senha
     });
     
-    // Validações
+    // Validações básicas
     if (!nome) {
         alert('❌ Digite o nome do usuário!');
         return;
@@ -1014,17 +1029,27 @@ function salvarUsuario() {
         return;
     }
     
-    // Validar senha se for novo usuário
-    if (!usuarioId) {
-        if (senha && senha !== confirmarSenha) {
-            alert('❌ As senhas não coincidem!');
-            return;
-        }
-        
-        if (senha && senha.length < 6) {
+    // ===== VALIDAÇÃO DE SENHA =====
+    // Verificar se a senha foi preenchida (quando aplicável)
+    if (senha) {
+        // Verificar tamanho mínimo
+        if (senha.length < 6) {
             alert('❌ A senha deve ter pelo menos 6 caracteres!');
             return;
         }
+        
+        // Verificar se as senhas coincidem
+        if (senha !== confirmarSenha) {
+            alert('❌ As senhas não coincidem!');
+            return;
+        }
+    } else {
+        // Se não tem senha e é novo usuário, pode definir uma padrão?
+        if (!usuarioId) {
+            alert('❌ Digite uma senha para o novo usuário!');
+            return;
+        }
+        // Se é edição e não preencheu senha, mantém a atual
     }
     
     // Preparar dados do usuário
@@ -1036,10 +1061,10 @@ function salvarUsuario() {
         ativo: ativo !== false
     };
     
-    // Adicionar senha se for novo usuário
-    if (!usuarioId) {
-        dadosUsuario.senha_hash = senha || gerarSenhaAleatoria();
-        console.log('📝 [DEBUG] Novo usuário, senha gerada:', dadosUsuario.senha_hash);
+    // Adicionar senha se foi fornecida
+    if (senha) {
+        dadosUsuario.senha_hash = senha;
+        console.log('📝 [DEBUG] Senha definida manualmente');
     }
     
     console.log('📝 [DEBUG] Chamando SistemaStorage.adicionarUsuario...');
@@ -1060,20 +1085,6 @@ function salvarUsuario() {
         mensagem = resultado ? 
             '✅ Usuário cadastrado com sucesso!' : 
             '❌ Erro ao cadastrar usuário!';
-        
-        // Mostrar senha gerada
-        if (resultado && !senha) {
-            const senhaGerada = dadosUsuario.senha_hash;
-            const senhaGeradaElement = document.getElementById('senhaGerada');
-            const senhaContainer = document.getElementById('senhaGeradaContainer');
-            
-            if (senhaGeradaElement) {
-                senhaGeradaElement.textContent = senhaGerada;
-            }
-            if (senhaContainer) {
-                senhaContainer.style.display = 'block';
-            }
-        }
     }
     
     if (resultado) {
@@ -1081,7 +1092,7 @@ function salvarUsuario() {
         const modal = bootstrap.Modal.getInstance(document.getElementById('addUsuarioModal'));
         if (modal) modal.hide();
         
-        // ATUALIZAR LISTA DE USUÁRIOS IMEDIATAMENTE
+        // ATUALIZAR LISTA DE USUÁRIOS
         carregarListaUsuarios();
         
         alert(mensagem);
@@ -1291,33 +1302,47 @@ window.excluirUsuario = function(id) {
     }
 };
 
-// NO app.js, LOCALIZE a função abrirModalUsuario e SUBSTITUA por:
-
+/// ========== FUNÇÃO ABRIR MODAL USUÁRIO ==========
 function abrirModalUsuario(id = null) {
-    usuarioEditandoId = id; // AGORA ESTA VARIÁVEL ESTÁ DEFINIDA
+    usuarioEditandoId = id;
     
     const modalTitle = document.getElementById('usuarioModalTitle');
     const usuarioForm = document.getElementById('usuarioForm');
+    
+    // 🔴 USANDO OS IDs CORRETOS DO HTML
+    const usuarioSenha = document.getElementById('usuarioSenha');
+    const usuarioConfirmarSenha = document.getElementById('usuarioConfirmarSenha');
+    const usuarioPerfil = document.getElementById('usuarioPerfil');
+    const usuarioAtivo = document.getElementById('usuarioAtivo');
     const gerarSenhaBtn = document.getElementById('gerarSenhaBtn');
-    const senhaContainer = document.getElementById('senhaGeradaContainer');
+    const senhaGeradaContainer = document.getElementById('senhaGeradaContainer');
+    
+    // Log para debug
+    console.log('Elementos encontrados:', {
+        usuarioSenha: !!usuarioSenha,
+        usuarioConfirmarSenha: !!usuarioConfirmarSenha,
+        usuarioPerfil: !!usuarioPerfil,
+        usuarioAtivo: !!usuarioAtivo,
+        gerarSenhaBtn: !!gerarSenhaBtn
+    });
     
     // Resetar formulário
     if (usuarioForm) usuarioForm.reset();
-    if (senhaContainer) senhaContainer.style.display = 'none';
     
-    // Carregar perfis no select (APENAS OS 4 PRÉ-DEFINIDOS)
-    const perfilSelect = document.getElementById('usuarioPerfil');
-    if (perfilSelect) {
-        perfilSelect.innerHTML = '<option value="">Selecione um perfil</option>';
+    // Esconder container de senha gerada
+    if (senhaGeradaContainer) senhaGeradaContainer.style.display = 'none';
+    
+    // Carregar perfis no select
+    if (usuarioPerfil) {
+        usuarioPerfil.innerHTML = '<option value="">Selecione um perfil</option>';
         
-        // APENAS OS PERFIS PRÉ-DEFINIDOS (exceto Master para novos usuários)
         SistemaStorage.perfis
             .filter(p => p.predefinido && p.nome !== 'Master')
             .forEach(perfil => {
                 const option = document.createElement('option');
                 option.value = perfil.id;
                 option.textContent = perfil.nome;
-                perfilSelect.appendChild(option);
+                usuarioPerfil.appendChild(option);
             });
     }
     
@@ -1330,31 +1355,47 @@ function abrirModalUsuario(id = null) {
             document.getElementById('usuarioNome').value = usuario.nome;
             document.getElementById('usuarioCPF').value = usuario.cpf;
             document.getElementById('usuarioEmail').value = usuario.email || '';
-            document.getElementById('usuarioPerfil').value = usuario.perfil_id;
-            document.getElementById('usuarioAtivo').checked = usuario.ativo !== false;
+            if (usuarioPerfil) usuarioPerfil.value = usuario.perfil_id;
+            if (usuarioAtivo) usuarioAtivo.checked = usuario.ativo !== false;
             
-            // Ocultar campos de senha para edição
-            document.getElementById('usuarioSenha').parentElement.style.display = 'none';
-            document.getElementById('usuarioConfirmarSenha').parentElement.style.display = 'none';
-            
-            // Mostrar botão de gerar nova senha (se não for Master)
-            if (gerarSenhaBtn && !usuario.master) {
+            // 🔴 MOSTRAR O BOTÃO "GERAR NOVA SENHA" NA EDIÇÃO
+            if (gerarSenhaBtn) {
                 gerarSenhaBtn.style.display = 'inline-block';
+                
+                // Configurar o botão para mostrar os campos de senha
                 gerarSenhaBtn.onclick = function() {
-                    gerarNovaSenhaUsuario(id);
+                    // Mostrar os campos de senha
+                    if (usuarioSenha) {
+                        usuarioSenha.parentElement.parentElement.style.display = 'block';
+                        usuarioSenha.value = '';
+                    }
+                    if (usuarioConfirmarSenha) {
+                        usuarioConfirmarSenha.parentElement.parentElement.style.display = 'block';
+                        usuarioConfirmarSenha.value = '';
+                    }
+                    // Esconder o botão após clicar (opcional)
+                    gerarSenhaBtn.style.display = 'none';
                 };
-            } else {
-                gerarSenhaBtn.style.display = 'none';
             }
+            
+            // 🔴 ESCONDER OS CAMPOS DE SENHA INICIALMENTE
+            if (usuarioSenha) usuarioSenha.parentElement.parentElement.style.display = 'none';
+            if (usuarioConfirmarSenha) usuarioConfirmarSenha.parentElement.parentElement.style.display = 'none';
         }
     } else {
         modalTitle.textContent = 'Cadastrar Usuário';
         
-        // Mostrar campos de senha para novo usuário
-        document.getElementById('usuarioSenha').parentElement.style.display = 'block';
-        document.getElementById('usuarioConfirmarSenha').parentElement.style.display = 'block';
+        // 🔴 PARA NOVO USUÁRIO, MOSTRAR OS CAMPOS DE SENHA
+        if (usuarioSenha) {
+            usuarioSenha.parentElement.parentElement.style.display = 'block';
+            usuarioSenha.value = '';
+        }
+        if (usuarioConfirmarSenha) {
+            usuarioConfirmarSenha.parentElement.parentElement.style.display = 'block';
+            usuarioConfirmarSenha.value = '';
+        }
         
-        // Ocultar botão de gerar nova senha (não faz sentido para novo usuário)
+        // 🔴 ESCONDER O BOTÃO "GERAR NOVA SENHA" NO NOVO USUÁRIO
         if (gerarSenhaBtn) gerarSenhaBtn.style.display = 'none';
     }
     
@@ -1390,8 +1431,7 @@ function abrirModalUsuario(id = null) {
 }
 
 // ========== FUNÇÃO CARREGAR LISTA DE USUÁRIOS ==========
-
-function carregarListaUsuarios() {
+window.carregarListaUsuarios = function() {
     console.log('📝 [DEBUG] carregarListaUsuarios INICIADO');
     
     const lista = document.getElementById('listaUsuarios');
@@ -1407,7 +1447,7 @@ function carregarListaUsuarios() {
     // USAR TODOS OS USUÁRIOS (FILTRAR APENAS O MASTER SE QUISER)
     console.log('📝 [DEBUG] Usuários no SistemaStorage:', SistemaStorage.usuarios.length);
     
-    // 🔴 CORREÇÃO: Mostrar todos os usuários, exceto o Master
+    // Mostrar todos os usuários, exceto o Master
     const usuarios = SistemaStorage.usuarios.filter(u => u.id !== 1); // Remove apenas o Master
     
     console.log('📝 [DEBUG] Usuários para exibir:', usuarios.length);
@@ -1470,7 +1510,7 @@ function carregarListaUsuarios() {
         `;
         lista.appendChild(item);
     });
-}
+};
 
 // ========== FUNÇÃO PARA LIMPAR MODAL DE CONFIGURAÇÕES ==========
 
@@ -3588,14 +3628,11 @@ function salvarPerfil() {
     }
 }
 
-// ========== FUNÇÃO CARREGAR LISTA DE PERFIS (ATUALIZADA) ==========
+// ========== FUNÇÃO CARREGAR LISTA DE PERFIS ==========
 
 function carregarListaPerfis() {
     const lista = document.getElementById('listaPerfis');
-    if (!lista) {
-        console.log('Elemento #listaPerfis não encontrado');
-        return;
-    }
+    if (!lista) return;
     
     lista.innerHTML = '';
     
@@ -3629,20 +3666,20 @@ function carregarListaPerfis() {
                         ${perfil.descricao || 'Sem descrição'}
                     </div>
                     <div class="small">
-                        <span class="badge ${perfil.nome === 'Master' ? 'bg-danger' : 'bg-info'}">
-                            Perfil Pré-definido
-                        </span>
+                        <span class="badge bg-info">Perfil Pré-definido</span>
                         <span class="badge ${emUso ? 'bg-success' : 'bg-secondary'} ms-2">
                             ${usuariosComPerfil} usuário(s)
                         </span>
                     </div>
                 </div>
                 <div class="btn-group">
-                    <button class="btn btn-sm btn-outline-primary me-1" onclick="visualizarDetalhesPerfil(${perfil.id})">
+                    <button class="btn btn-sm btn-outline-primary me-1" onclick="visualizarDetalhesPerfil(${perfil.id})"
+                            title="Visualizar permissões">
                         <i class="fas fa-eye"></i>
                     </button>
                     ${podeEditar ? `
-                    <button class="btn btn-sm btn-outline-warning" onclick="editarPermissoesPerfil(${perfil.id})">
+                    <button class="btn btn-sm btn-outline-warning" onclick="editarPermissoesPerfil(${perfil.id})"
+                            title="Editar permissões">
                         <i class="fas fa-edit"></i>
                     </button>
                     ` : ''}
@@ -3651,12 +3688,6 @@ function carregarListaPerfis() {
         `;
         lista.appendChild(item);
     });
-    
-    // ESCONDER O BOTÃO "NOVO PERFIL" - não vamos criar novos perfis
-    const btnNovoPerfil = document.getElementById('btnNovoPerfil');
-    if (btnNovoPerfil) {
-        btnNovoPerfil.style.display = 'none';
-    }
 }
 
 // ========== FUNÇÃO VISUALIZAR DETALHES DO PERFIL ==========
@@ -3914,8 +3945,6 @@ window.visualizarDetalhesPerfil = function(perfilId) {
     });
 };
 
-// NO app.js, ADICIONE estas funções:
-
 // ========== FUNÇÕES PARA VISUALIZAR/EDITAR PERMISSÕES ==========
 
 window.visualizarPermissoesPerfil = function(perfilId) {
@@ -4146,6 +4175,349 @@ window.editarPermissoesPerfil = function(perfilId) {
     }
 };
 
+// ========== FUNÇÕES PARA O MODAL DE PERMISSÕES ==========
+
+// Função para criar o HTML dos checkboxes de permissões
+function criarCheckboxesPermissoes(perfil) {
+    console.log('Criando checkboxes para perfil:', perfil.nome);
+    
+    // Estrutura de permissões organizada por módulos
+    const modulos = [
+        {
+            nome: 'CONTROLE DE FALTAS',
+            permissoes: [
+                { id: 'ver_faltas', label: 'Visualizar faltas' },
+                { id: 'registrar_falta', label: 'Registrar nova falta' },
+                { id: 'editar_falta', label: 'Editar falta' },
+                { id: 'excluir_falta', label: 'Excluir faltas' }
+            ]
+        },
+        {
+            nome: 'DADOS DO DOCENTE',
+            permissoes: [
+                { id: 'ver_docentes', label: 'Visualizar docentes' },
+                { id: 'cadastrar_docente', label: 'Cadastrar novo docente' },
+                { id: 'editar_docente', label: 'Editar docente' },
+                { id: 'excluir_docente', label: 'Excluir docentes' }
+            ]
+        },
+        {
+            nome: 'JUSTIFICATIVAS',
+            permissoes: [
+                { id: 'ver_justificativas', label: 'Visualizar justificativas' },
+                { id: 'gerenciar_justificativas', label: 'Cadastrar/editar justificativas' }
+            ]
+        },
+        {
+            nome: 'RELATÓRIOS E ESTATÍSTICAS',
+            permissoes: [
+                { id: 'ver_relatorios', label: 'Visualizar relatórios' },
+                { id: 'gerar_relatorio_pdf', label: 'Gerar relatório PDF' }
+            ]
+        },
+        {
+            nome: 'CONFIGURAÇÕES',
+            permissoes: [
+                { id: 'acessar_configuracoes', label: 'Acessar configurações' },
+                { id: 'gerenciar_disciplinas', label: 'Gerenciar disciplinas' },
+                { id: 'gerenciar_cursos', label: 'Gerenciar cursos' },
+                { id: 'gerenciar_justificativas', label: 'Gerenciar justificativas' },
+                { id: 'gerenciar_usuarios', label: 'Gerenciar usuários' },
+                { id: 'editar_usuario', label: 'Editar usuário' },
+                { id: 'resetar_senhas', label: 'Resetar senhas' },
+                { id: 'visualizar_logs', label: 'Visualizar logs' },
+                { id: 'gerenciar_perfis', label: 'Gerenciar perfis' }
+            ]
+        }
+    ];
+    
+    let html = '';
+    
+    modulos.forEach((modulo, index) => {
+        const moduloId = `modulo_${index}`;
+        const show = index === 0; // Primeiro módulo aberto
+        
+        html += `
+            <div class="card mb-3">
+                <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+                    <h6 class="mb-0">
+                        <i class="fas fa-${getIconeModulo(modulo.nome)} me-2"></i>
+                        ${modulo.nome}
+                    </h6>
+                    <div>
+                        <button type="button" class="btn btn-sm btn-light" onclick="selecionarTodosModulo('${modulo.nome}')">
+                            <i class="fas fa-check-double me-1"></i> Todos
+                        </button>
+                        <button type="button" class="btn btn-sm btn-light ms-1" onclick="limparTodosModulo('${modulo.nome}')">
+                            <i class="fas fa-times me-1"></i> Limpar
+                        </button>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+        `;
+        
+        modulo.permissoes.forEach(permissao => {
+            const checked = perfil.permissoes[permissao.id] === true;
+            html += `
+                <div class="col-md-4 mb-2">
+                    <div class="form-check">
+                        <input class="form-check-input permissao-checkbox" 
+                               type="checkbox" 
+                               id="perm_${permissao.id}"
+                               data-modulo="${modulo.nome}"
+                               data-permissao="${permissao.id}"
+                               ${checked ? 'checked' : ''}>
+                        <label class="form-check-label" for="perm_${permissao.id}">
+                            ${permissao.label}
+                        </label>
+                    </div>
+                </div>
+            `;
+        });
+        
+        html += `
+                    </div>
+                </div>
+            </div>
+        `;
+    });
+    
+    return html;
+}
+
+// Função auxiliar para ícones
+function getIconeModulo(modulo) {
+    const icones = {
+        'CONTROLE DE FALTAS': 'calendar-alt',
+        'DADOS DO DOCENTE': 'users',
+        'JUSTIFICATIVAS': 'file-alt',
+        'RELATÓRIOS E ESTATÍSTICAS': 'chart-bar',
+        'CONFIGURAÇÕES': 'cog'
+    };
+    return icones[modulo] || 'circle';
+}
+
+// Função para selecionar todos os checkboxes de um módulo
+window.selecionarTodosModulo = function(modulo) {
+    console.log('Selecionando todos do módulo:', modulo);
+    const checkboxes = document.querySelectorAll(`.permissao-checkbox[data-modulo="${modulo}"]`);
+    checkboxes.forEach(cb => cb.checked = true);
+};
+
+// Função para limpar todos os checkboxes de um módulo
+window.limparTodosModulo = function(modulo) {
+    console.log('Limpando todos do módulo:', modulo);
+    const checkboxes = document.querySelectorAll(`.permissao-checkbox[data-modulo="${modulo}"]`);
+    checkboxes.forEach(cb => cb.checked = false);
+};
+
+// Função para salvar as permissões (sobrescrevendo a existente)
+function salvarPermissoes() {
+    console.log('Salvando permissões...');
+    
+    if (!perfilEditandoId) {
+        alert('❌ Erro: ID do perfil não encontrado!');
+        return;
+    }
+    
+    const perfil = SistemaStorage.getPerfilPorId(perfilEditandoId);
+    if (!perfil) {
+        alert('❌ Perfil não encontrado!');
+        return;
+    }
+    
+    // Coletar todas as permissões dos checkboxes
+    const novasPermissoes = {};
+    const checkboxes = document.querySelectorAll('.permissao-checkbox');
+    
+    checkboxes.forEach(checkbox => {
+        const permissao = checkbox.getAttribute('data-permissao');
+        novasPermissoes[permissao] = checkbox.checked;
+    });
+    
+    console.log('Novas permissões:', novasPermissoes);
+    
+    // Confirmar com o usuário
+    if (!confirm(`Deseja salvar as novas permissões para o perfil "${perfil.nome}"?`)) {
+        return;
+    }
+    
+    // Atualizar no storage
+    if (SistemaStorage.atualizarPerfil(perfilEditandoId, { permissoes: novasPermissoes })) {
+        // Fechar modal
+        const modal = bootstrap.Modal.getInstance(document.getElementById('editarPermissoesModal'));
+        if (modal) modal.hide();
+        
+        // Atualizar lista de perfis
+        carregarListaPerfis();
+        
+        // Se o usuário atual tiver este perfil, aplicar novas permissões
+        const usuarioAtual = SistemaStorage.getUsuarioAtual();
+        if (usuarioAtual && usuarioAtual.perfil_id === perfilEditandoId) {
+            aplicarPermissoesInterface();
+        }
+        
+        alert(`✅ Permissões do perfil "${perfil.nome}" atualizadas com sucesso!`);
+    } else {
+        alert('❌ Erro ao salvar permissões!');
+    }
+}
+
+// Função para abrir o modal de edição de permissões (sobrescrevendo a existente)
+window.editarPermissoesPerfil = function(perfilId) {
+    console.log('Editando permissões do perfil ID:', perfilId);
+    
+    if (!temPermissao('gerenciar_perfis')) {
+        alert('❌ Você não tem permissão para editar perfis!');
+        return;
+    }
+    
+    const perfil = SistemaStorage.getPerfilPorId(perfilId);
+    if (!perfil) {
+        alert('❌ Perfil não encontrado!');
+        return;
+    }
+    
+    // Verificar se é Master (não editável)
+    if (perfil.nome === 'Master') {
+        alert('❌ O perfil Master não pode ser editado!');
+        return;
+    }
+    
+    perfilEditandoId = perfilId;
+    
+    // Atualizar título do modal
+    const tituloElement = document.getElementById('perfilNomeTitulo');
+    if (tituloElement) {
+        tituloElement.textContent = perfil.nome;
+    }
+    
+    // Preencher o corpo do modal com os checkboxes
+    const modalBody = document.querySelector('#editarPermissoesModal .modal-body');
+    if (modalBody) {
+        modalBody.innerHTML = `
+            <form id="permissoesForm">
+                ${criarCheckboxesPermissoes(perfil)}
+                <div class="alert alert-info mt-3" id="masterWarning" style="display: none;">
+                    <i class="fas fa-info-circle me-2"></i>
+                    <strong>Perfil Master:</strong> Este perfil tem todas as permissões e não pode ser editado.
+                </div>
+            </form>
+        `;
+    }
+    
+    // Abrir modal
+    const modalElement = document.getElementById('editarPermissoesModal');
+    if (modalElement) {
+        const modal = new bootstrap.Modal(modalElement);
+        modal.show();
+    } else {
+        console.error('Modal de permissões não encontrado!');
+        alert('❌ Erro ao abrir modal de permissões!');
+    }
+};
+
+// Garantir que o botão salvar está configurado
+document.addEventListener('DOMContentLoaded', function() {
+    const salvarBtn = document.getElementById('salvarPermissoesBtn');
+    if (salvarBtn) {
+        // Remover listeners antigos
+        const newSalvarBtn = salvarBtn.cloneNode(true);
+        salvarBtn.parentNode.replaceChild(newSalvarBtn, salvarBtn);
+        
+        // Adicionar novo listener
+        newSalvarBtn.addEventListener('click', salvarPermissoes);
+    }
+});
+
+// ========== FUNÇÕES PARA EDITAR CURSOS ==========
+window.editarCurso = function(nomeAtual) {
+    const novoNome = prompt(`Editar curso:\n\nNome atual: ${nomeAtual}\n\nDigite o novo nome:`, nomeAtual);
+    
+    if (!novoNome || novoNome.trim() === nomeAtual) return;
+    
+    const novoNomeTrim = novoNome.trim();
+    
+    const existe = SistemaStorage.cursos.some(c => 
+        c.toLowerCase() === novoNomeTrim.toLowerCase() && c !== nomeAtual
+    );
+    
+    if (existe) {
+        alert(`❌ O curso "${novoNomeTrim}" já existe!`);
+        return;
+    }
+    
+    const index = SistemaStorage.cursos.indexOf(nomeAtual);
+    if (index !== -1) {
+        SistemaStorage.cursos[index] = novoNomeTrim;
+        SistemaStorage.salvar('cursos', SistemaStorage.cursos);
+    }
+    
+    // Atualizar docentes que usam este curso
+    SistemaStorage.docentes.forEach(docente => {
+        const cursoIndex = docente.cursos.indexOf(nomeAtual);
+        if (cursoIndex !== -1) {
+            docente.cursos[cursoIndex] = novoNomeTrim;
+        }
+    });
+    SistemaStorage.salvar('docentes', SistemaStorage.docentes);
+    
+    // Atualizar faltas que usam este curso
+    SistemaStorage.faltas.forEach(falta => {
+        if (falta.curso === nomeAtual) {
+            falta.curso = novoNomeTrim;
+        }
+    });
+    SistemaStorage.salvar('faltas', SistemaStorage.faltas);
+    
+    carregarListaCursos();
+    atualizarSelectsCursos();
+    atualizarTabelaDocentes();
+    atualizarTabelaFaltas();
+    
+    alert(`✅ Curso atualizado de "${nomeAtual}" para "${novoNomeTrim}"!`);
+};
+
+// ========== FUNÇÕES PARA EDITAR JUSTIFICATIVAS ==========
+window.editarJustificativaConfig = function(descricaoAtual) {
+    const novaDescricao = prompt(`Editar justificativa:\n\nDescrição atual: ${descricaoAtual}\n\nDigite a nova descrição:`, descricaoAtual);
+    
+    if (!novaDescricao || novaDescricao.trim() === descricaoAtual) return;
+    
+    const novaDescricaoTrim = novaDescricao.trim();
+    
+    const existe = SistemaStorage.justificativas.some(j => 
+        j.toLowerCase() === novaDescricaoTrim.toLowerCase() && j !== descricaoAtual
+    );
+    
+    if (existe) {
+        alert(`❌ A justificativa "${novaDescricaoTrim}" já existe!`);
+        return;
+    }
+    
+    const index = SistemaStorage.justificativas.indexOf(descricaoAtual);
+    if (index !== -1) {
+        SistemaStorage.justificativas[index] = novaDescricaoTrim;
+        SistemaStorage.salvar('justificativas', SistemaStorage.justificativas);
+    }
+    
+    // Atualizar faltas que usam esta justificativa
+    SistemaStorage.faltas.forEach(falta => {
+        if (falta.justificativa === descricaoAtual) {
+            falta.justificativa = novaDescricaoTrim;
+        }
+    });
+    SistemaStorage.salvar('faltas', SistemaStorage.faltas);
+    
+    carregarListaJustificativasConfig();
+    carregarJustificativas();
+    atualizarSelectsJustificativas();
+    atualizarTabelaFaltas();
+    
+    alert(`✅ Justificativa atualizada de "${descricaoAtual}" para "${novaDescricaoTrim}"!`);
+};
+
 // ========== FUNÇÕES GLOBAIS PARA PERFIS ==========
 window.editarPerfil = function(id) {
     if (!temPermissao('gerenciar_perfis')) {
@@ -4350,98 +4722,7 @@ ${index + 1}. ${docente.nome}
     `);
 }
 
-// ========== FUNÇÃO GERAR NOVA SENHA PARA USUÁRIO ==========
 
-function gerarNovaSenhaUsuario(usuarioId) {
-    const usuario = SistemaStorage.getUsuarioPorId(usuarioId);
-    if (!usuario) return;
-    
-    // USAR A FUNÇÃO LOCAL gerarSenhaAleatoria (não SistemaStorage.gerarSenhaAleatoria)
-    const novaSenha = gerarSenhaAleatoria(10); // 10 caracteres
-    
-    // Atualizar usuário com nova senha
-    const dadosAtualizados = {
-        senha_hash: novaSenha
-    };
-    
-    if (SistemaStorage.atualizarUsuario(usuarioId, dadosAtualizados)) {
-        // Mostrar nova senha no modal
-        const senhaGeradaElement = document.getElementById('senhaGerada');
-        const senhaContainer = document.getElementById('senhaGeradaContainer');
-        
-        if (senhaGeradaElement) {
-            senhaGeradaElement.textContent = novaSenha;
-        }
-        if (senhaContainer) {
-            senhaContainer.style.display = 'block';
-        }
-        
-        alert('✅ Nova senha gerada com sucesso!\n\nSenha: ' + novaSenha + '\n\nAnote esta senha!');
-    } else {
-        alert('❌ Erro ao gerar nova senha!');
-    }
-}
-
-// ========== FUNÇÃO RESETAR SENHA DE USUÁRIO ==========
-
-function resetarSenhaUsuario(usuarioId) {
-    const usuario = SistemaStorage.getUsuarioPorId(usuarioId);
-    if (!usuario) {
-        console.error('Usuário não encontrado ID:', usuarioId);
-        alert('❌ Usuário não encontrado!');
-        return;
-    }
-    
-    // Gerar nova senha
-    const novaSenha = gerarSenhaAleatoria ? gerarSenhaAleatoria() : 'NovaSenha123';
-    
-    console.log('Resetando senha para usuário:', usuario.nome, 'Nova senha:', novaSenha);
-    
-    // Preencher modal de confirmação
-    const nomeUsuarioReset = document.getElementById('nomeUsuarioReset');
-    const novaSenhaGerada = document.getElementById('novaSenhaGerada');
-    
-    if (nomeUsuarioReset) nomeUsuarioReset.textContent = usuario.nome;
-    if (novaSenhaGerada) novaSenhaGerada.textContent = novaSenha;
-    
-    // Configurar botão de confirmação
-    const confirmarBtn = document.getElementById('confirmarResetSenhaBtn');
-    if (confirmarBtn) {
-        // Remover event listeners anteriores
-        const newConfirmarBtn = confirmarBtn.cloneNode(true);
-        confirmarBtn.parentNode.replaceChild(newConfirmarBtn, confirmarBtn);
-        
-        newConfirmarBtn.onclick = function() {
-            const dadosAtualizados = {
-                senha_hash: novaSenha
-            };
-            
-            if (SistemaStorage.atualizarUsuario(usuarioId, dadosAtualizados)) {
-                alert(`✅ Senha resetada com sucesso!\n\nNova senha: ${novaSenha}\n\nAnote esta senha!`);
-                
-                // Fechar modal
-                const modal = bootstrap.Modal.getInstance(document.getElementById('resetSenhaModal'));
-                if (modal) modal.hide();
-                
-                // Registrar log
-                SistemaStorage.registrarLog('RESET_SENHA', 'Usuários', 
-                    `Resetou senha do usuário: ${usuario.nome}`, SistemaStorage.getUsuarioAtual()?.id);
-            } else {
-                alert('❌ Erro ao resetar senha!');
-            }
-        };
-    }
-    
-    // Mostrar modal
-    const modalElement = document.getElementById('resetSenhaModal');
-    if (modalElement) {
-        const modal = bootstrap.Modal.getInstance(modalElement) || new bootstrap.Modal(modalElement);
-        modal.show();
-    } else {
-        console.error('Modal de reset de senha não encontrado!');
-        alert('❌ Erro: Modal não encontrado. Recarregue a página.');
-    }
-}
 
 // ========== FUNÇÃO PARA FILTRAR USUÁRIOS ==========
 function filtrarUsuarios() {

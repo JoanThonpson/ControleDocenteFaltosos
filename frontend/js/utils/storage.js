@@ -90,44 +90,49 @@ const SistemaStorage = {
     // ========== INICIALIZAÇÃO ==========
     inicializar: function() {
         console.log('Inicializando sistema de dados...');
-        
-        // Carregar dados do localStorage ou usar padrão
+    
+        // Carregar dados do localStorage
         this.carregarTodos();
-        
-        // Se for primeira execução, criar dados padrão
-        if (this.disciplinas.length === 0) {
-            this.criarDadosPadrao();
-        }
-
-        // Garantir que Master existe
-        this.garantirMasterExiste();
-        
-        console.log('Sistema de dados pronto:', {
-            disciplinas: this.disciplinas.length,
-            cursos: this.cursos.length,
-            justificativas: this.justificativas.length,
-            docentes: this.docentes.length,
-            faltas: this.faltas.length,
-            usuarios: this.usuarios.length,     
-            perfis: this.perfis.length,         
-            logs: this.logs.length  
+    
+        console.log('📊 Dados carregados:', {
+        usuarios: this.usuarios.length,
+        perfis: this.perfis.length,
+        disciplinas: this.disciplinas.length
         });
+    
+        // Se for primeira execução (sem disciplinas), criar dados padrão
+        if (this.disciplinas.length === 0) {
+        console.log('⚠️ Primeira execução - criando dados padrão');
+        this.criarDadosPadrao();
+        } else {
+        console.log('✅ Dados já existem - apenas garantir Master');
+        // APENAS garantir que Master existe, sem recriar nada
+        this.garantirMasterExiste();
+        }
     },
 
         // ========== GARANTIR MASTER EXISTE ==========
-    garantirMasterExiste: function() {
+        garantirMasterExiste: function() {
+        console.log('🔍 Verificando se Master existe...');
+        console.log('Usuários atuais:', this.usuarios.length);
+    
         // Verificar se já existe um usuário Master
         const masterExiste = this.usuarios.some(u => u.master === true);
-        
+    
         if (!masterExiste) {
-            console.log('Criando usuário Master...');
+            console.log('⚠️ Master não encontrado! Criando novo Master...');
             this.criarUsuarioMaster();
+        } else {
+            console.log('✅ Master já existe, mantendo dados existentes');
+            // NÃO FAZ NADA - apenas mantém os usuários existentes
         }
-        
-        // Garantir que perfil Master existe
-        const perfilMasterExiste = this.perfis.some(p => p.id === 1);
-        if (!perfilMasterExiste) {
+    
+        // Verificar se os perfis existem
+        if (this.perfis.length === 0) {
+            console.log('⚠️ Perfis não encontrados! Criando perfis...');
             this.criarPerfisPredefinidos();
+        } else {
+            console.log('✅ Perfis já existem, mantendo dados existentes');
         }
     },
     
@@ -730,43 +735,47 @@ const SistemaStorage = {
     // ========== AUTENTICAÇÃO ==========
     autenticarUsuario: function(login, senha) {
         console.log('Tentando autenticar:', login);
-        
+    
         // Se for Master (admin)
         if (login === 'admin') {
-            const master = this.usuarios.find(u => u.master === true);
-            if (master && senha === master.senha_hash) {
-                // Registrar log de login
-                this.registrarLog('LOGIN', 'Autenticação', 'Login realizado como Master', master.id);
-                return master;
-            }
-            return null;
+        const master = this.usuarios.find(u => u.master === true);
+        if (master && senha === master.senha_hash) {
+            this.registrarLog('LOGIN', 'Autenticação', 'Login realizado como Master', master.id);
+            return master;
         }
-        
+        return null;
+        }
+    
         // Se for CPF (usuário normal)
-        const usuario = this.getUsuarioPorCPF(login);
+        // IMPORTANTE: Remover formatação do CPF
+        const loginLimpo = login.replace(/[^\d]/g, '');
+        console.log('Login limpo:', loginLimpo);
+    
+        // Procurar usuário por CPF (comparando sem formatação)
+        const usuario = this.usuarios.find(u => {
+        if (u.master) return false;
+        if (!u.ativo) return false;
+        
+        const cpfUsuario = u.cpf.replace(/[^\d]/g, '');
+        return cpfUsuario === loginLimpo;
+        });
+    
         if (!usuario) {
-            console.log('Usuário não encontrado:', login);
-            return null;
+        console.log('Usuário não encontrado com CPF:', login);
+        return null;
         }
-        
-        if (!usuario.ativo) {
-            console.log('Usuário inativo:', usuario.nome);
-            return null;
-        }
-        
-        // Verificar senha (em produção seria hash)
+    
+        console.log('Usuário encontrado:', usuario.nome);
+    
+        // Verificar senha
         if (senha === usuario.senha_hash) {
-            // Atualizar último login
-            usuario.ultimo_login = new Date().toISOString();
-            this.salvar('usuarios', this.usuarios);
-            
-            // Registrar log de login
-            this.registrarLog('LOGIN', 'Autenticação', 'Login realizado', usuario.id);
-            
-            return usuario;
+        usuario.ultimo_login = new Date().toISOString();
+        this.salvar('usuarios', this.usuarios);
+        this.registrarLog('LOGIN', 'Autenticação', `Login realizado: ${usuario.nome}`, usuario.id);
+        return usuario;
         }
-        
-        console.log('Senha incorreta para usuário:', usuario.nome);
+    
+        console.log('Senha incorreta para:', usuario.nome);
         return null;
     },
     
@@ -880,64 +889,36 @@ const SistemaStorage = {
         // Criar usuário Master
         this.criarUsuarioMaster();
         
-        // Adicionar alguns usuários de exemplo
-        this.adicionarUsuario({
-            nome: "João Silva",
-            cpf: "123.456.789-00",
-            email: "joao@escola.com",
-            perfil_id: 2, // Gestor
-            senha_hash: "senha123"
-        });
-        
-        this.adicionarUsuario({
-            nome: "Maria Santos",
-            cpf: "987.654.321-00",
-            email: "maria@escola.com",
-            perfil_id: 3, // Operador
-            senha_hash: "senha123"
-        });
-        
-        this.adicionarUsuario({
-            nome: "Pedro Costa",
-            cpf: "456.789.123-00",
-            email: "pedro@escola.com",
-            perfil_id: 4, // Supervisor
-            ativo: false, // Inativo
-            senha_hash: "senha123"
-        });
-        
         // Salvar tudo
         this.salvarTodos();
     },
     
-    // ========== OPERAÇÕES DE ARMAZENAMENTO ==========
-    
-    // Carregar todos os dados do localStorage
-    carregarTodos: function() {
-        this.disciplinas = this.carregar('disciplinas') || [];
-        this.cursos = this.carregar('cursos') || [];
-        this.justificativas = this.carregar('justificativas') || [];
-        this.docentes = this.carregar('docentes') || [];
-        this.faltas = this.carregar('faltas') || [];
-    },
-    
-    // Salvar todos os dados no localStorage
-    salvarTodos: function() {
-        this.salvar('disciplinas', this.disciplinas);
-        this.salvar('cursos', this.cursos);
-        this.salvar('justificativas', this.justificativas);
-        this.salvar('docentes', this.docentes);
-        this.salvar('faltas', this.faltas);
-    },
     
     // Métodos auxiliares de localStorage
     carregar: function(chave) {
+        console.log(`📂 [DEBUG] Carregando ${chave} do localStorage...`);
         const dados = localStorage.getItem(`sistema_faltas_${chave}`);
-        return dados ? JSON.parse(dados) : null;
+        console.log(`📂 [DEBUG] Dados brutos de ${chave}:`, dados ? dados.substring(0, 100) + '...' : 'null');
+    
+        if (dados) {
+            try {
+                const parsed = JSON.parse(dados);
+                console.log(`✅ [DEBUG] ${chave} carregado com sucesso:`, parsed.length, 'itens');
+                console.log(`📋 [DEBUG] Primeiros itens de ${chave}:`, JSON.stringify(parsed).substring(0, 200));
+                return parsed;
+            } catch (e) {
+                console.error(`❌ [DEBUG] Erro ao parsear ${chave}:`, e);
+                return null;
+            }
+        }
+        console.log(`⚠️ [DEBUG] ${chave} não encontrado no localStorage`);
+        return null;
     },
     
     salvar: function(chave, dados) {
+        console.log(`💾 [DEBUG] Salvando ${chave} no localStorage...`, dados.length, 'itens');
         localStorage.setItem(`sistema_faltas_${chave}`, JSON.stringify(dados));
+        console.log(`✅ [DEBUG] ${chave} salvo com sucesso`);
     },
     
     // ========== OPERAÇÕES DE DISCIPLINAS ==========
