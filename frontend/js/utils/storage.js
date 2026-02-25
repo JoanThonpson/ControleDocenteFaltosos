@@ -499,40 +499,59 @@ const SistemaStorage = {
     
     // ========== VERIFICAR SE USUÁRIO PODE SER EXCLUÍDO ==========
     usuarioPodeSerExcluido: function(usuarioId) {
-        const usuario = this.getUsuarioPorId(usuarioId);
-        if (!usuario) return false;
-        
-        // Master nunca pode ser excluído
-        if (usuario.master) return false;
-        
-        // Verificar se tem faltas registradas (como usuário responsável)
-        // NOTA: Precisaremos adicionar campo usuario_id nas faltas depois
-        const temFaltas = this.faltas.some(f => 
-            f.usuario_id === usuarioId || f.registrado_por === usuarioId
-        );
-        
-        // Verificar se tem logs (já tem por ser usuário)
-        const temLogs = this.logs.some(l => l.usuario_id === usuarioId);
-        
-        // Se for último administrador ativo, não pode excluir
-        if (usuario.perfil_id === 2) { // Gestor
-            const gestoresAtivos = this.usuarios.filter(u => 
-                u.perfil_id === 2 && u.ativo && u.id !== usuarioId
-            ).length;
-            
-            if (gestoresAtivos === 0) {
-                console.log('Não pode excluir - é o último gestor ativo');
-                return false;
-            }
-        }
-        
-        return !(temFaltas || temLogs);
-    },
 
+    const usuario = this.getUsuarioPorId(usuarioId);
+    if (!usuario) return false;
+    
+    // Master nunca pode ser excluído
+    if (usuario.master) return false;
+    
+    // Verificar se tem faltas registradas
+    const temFaltas = this.faltas.some(f => 
+        f.usuario_id === usuarioId || f.registrado_por === usuarioId
+    );
+    
+    // ✅ CORREÇÃO AQUI
+    const acoesQueBloqueiam = [
+        'CADASTRAR_DOCENTE',
+        'EDITAR_DOCENTE',
+        'EXCLUIR_DOCENTE',
+
+        'CADASTRAR_FALTA',
+        'EDITAR_FALTA',
+        'EXCLUIR_FALTA',
+
+        'CADASTRAR_USUARIO',
+        'EDITAR_USUARIO',
+        'EXCLUIR_USUARIO',
+
+        'EDITAR_PERFIL',
+        'EDITAR_CONFIGURACOES'
+    ];
+
+    const temLogs = this.logs.some(l =>
+        l.usuario_id === usuarioId &&
+        acoesQueBloqueiam.includes(l.acao)
+    );
+    
+    // Verificar se é último gestor ativo
+    if (usuario.perfil_id === 2) {
+        const gestoresAtivos = this.usuarios.filter(u => 
+            u.perfil_id === 2 && u.ativo && u.id !== usuarioId
+        ).length;
+        
+        if (gestoresAtivos === 0) {
+            console.log('Não pode excluir - é o último gestor ativo');
+            return false;
+        }
+    }
+    
+    return !(temFaltas || temLogs);
+    },
         // ========== OPERAÇÕES DE PERFIS ==========
     getPerfilPorId: function(id) {
         return this.perfis.find(p => p.id === id) || null;
-    },
+     },
     
     getPerfilPorNome: function(nome) {
         return this.perfis.find(p => p.nome.toLowerCase() === nome.toLowerCase()) || null;

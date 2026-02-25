@@ -1435,10 +1435,14 @@ window.carregarListaUsuarios = function() {
     console.log('📝 [DEBUG] carregarListaUsuarios INICIADO');
     
     const lista = document.getElementById('listaUsuarios');
+    
     if (!lista) {
         console.log('⚠️ [DEBUG] Elemento #listaUsuarios não encontrado');
         return;
     }
+
+    // ✅ CORREÇÃO PRINCIPAL — LIMPAR A LISTA ANTES DE RENDERIZAR
+    lista.innerHTML = '';
     
     // VERIFICAR DIRETAMENTE DO LOCALSTORAGE
     const usuariosStorage = localStorage.getItem('sistema_faltas_usuarios');
@@ -1448,7 +1452,7 @@ window.carregarListaUsuarios = function() {
     console.log('📝 [DEBUG] Usuários no SistemaStorage:', SistemaStorage.usuarios.length);
     
     // Mostrar todos os usuários, exceto o Master
-    const usuarios = SistemaStorage.usuarios.filter(u => u.id !== 1); // Remove apenas o Master
+    const usuarios = SistemaStorage.usuarios.filter(u => u.id !== 1);
     
     console.log('📝 [DEBUG] Usuários para exibir:', usuarios.length);
     
@@ -1508,6 +1512,7 @@ window.carregarListaUsuarios = function() {
                 </button>
             </div>
         `;
+        
         lista.appendChild(item);
     });
 };
