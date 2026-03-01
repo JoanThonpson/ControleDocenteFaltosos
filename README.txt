@@ -194,7 +194,7 @@ Dashboard inicial: Com gráficos de faltas por mês/docente
 ---------------------------------------------------------------------------------------------------------------
 
 
-Carla Lima (789.123.456-00) - Operador - Ativo [✏️ Editar] [🗑️ Excluir*]
+JoanThonpson/github-readme-stats
 
 *Só pode excluir se não tiver registros (faltas, logs, etc.)
 
