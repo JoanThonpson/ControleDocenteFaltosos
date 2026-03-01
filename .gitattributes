@@ -3,4 +3,4 @@
 *.js linguist-language=JavaScript
 *.json linguist-language=JSON
 *.md linguist-language=Markdown
-*.txt linguist-language=Text
+*.py linguist-language=Python
