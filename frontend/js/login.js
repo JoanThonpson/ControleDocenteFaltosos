@@ -1,6 +1,9 @@
 // js/login.js - VERSÃO CORRIGIDA
 console.log('Login carregado');
 
+// VARIÁVEL DE CONTROLE GLOBAL
+let _processandoLogin = false;
+
 document.addEventListener('DOMContentLoaded', function() {
     console.log('Login inicializado');
     
@@ -235,8 +238,15 @@ function fazerLoginAdmin() {
     }
 }
 
-// Função para fazer login com CPF (usuários normais)
+// Função para fazer login com CPF
 function fazerLoginCPF() {
+    // 🔥 PREVENIR EXECUÇÃO DUPLICADA
+    if (_processandoLogin) {
+        console.log('⚠️ Login já em andamento, ignorando...');
+        return;
+    }
+    _processandoLogin = true;
+    
     const cpf = document.getElementById('cpf')?.value || '';
     const senha = document.getElementById('passwordCpf')?.value || '';
     
@@ -245,11 +255,13 @@ function fazerLoginCPF() {
     // Validar CPF básico
     if (!cpf || cpf.length < 11) {
         alert('❌ Digite um CPF válido!');
+        _processandoLogin = false; // 🔥 Liberar
         return;
     }
     
     if (!senha) {
         alert('❌ Digite a senha!');
+        _processandoLogin = false; // 🔥 Liberar
         return;
     }
     
@@ -259,18 +271,31 @@ function fazerLoginCPF() {
         const usuario = SistemaStorage.autenticarUsuario(cpf, senha);
         
         if (usuario) {
-            console.log('✅ Login bem-sucedido:', usuario.nome);
+            console.log('✅ Usuário encontrado:', usuario.nome);
             
-            // Verificar se usuário está ativo
+            // 🔥 VERIFICAÇÃO DE USUÁRIO INATIVO
             if (!usuario.ativo) {
-                alert('❌ Usuário inativo! Contate o administrador.');
+                alert('❌ Seu usuário está inativo. Entre em contato com o suporte para mais informações.');
+                
+                if (typeof SistemaStorage.registrarLog === 'function') {
+                    SistemaStorage.registrarLog('LOGIN_BLOQUEADO', 'Autenticação', 
+                        `Tentativa de login em usuário inativo: ${usuario.nome}`);
+                }
+                
+                _processandoLogin = false; // 🔥 Liberar
                 return;
             }
             
-            // Salvar usuário no SistemaStorage
+            // 🔥 VERIFICAÇÃO DE TROCA DE SENHA
+            if (usuario.forcarTrocaSenha) {
+                console.log('⚠️ Usuário precisa trocar senha');
+                mostrarModalTrocaSenha(usuario);
+                return;
+            }
+            
+            // Se não precisar trocar senha, continua normalmente
             SistemaStorage.setUsuarioAtual(usuario);
             
-            // Salvar no localStorage para compatibilidade
             localStorage.setItem('sistema_faltas_auth', JSON.stringify({
                 id: usuario.id,
                 name: usuario.nome,
@@ -282,7 +307,6 @@ function fazerLoginCPF() {
             
             console.log('✅ Usuário autenticado:', usuario);
             
-            // Redirecionar
             setTimeout(() => {
                 console.log('Redirecionando para sistema.html...');
                 window.location.href = 'sistema.html';
@@ -290,12 +314,11 @@ function fazerLoginCPF() {
             
         } else {
             alert('❌ CPF ou senha incorretos!');
-            console.log('Autenticação falhou para CPF:', cpf);
+            _processandoLogin = false; // 🔥 Liberar
         }
-        
     } else {
-        console.error('SistemaStorage não disponível!');
         alert('❌ Erro no sistema. Recarregue a página.');
+        _processandoLogin = false; // 🔥 Liberar
     }
 }
 
@@ -318,5 +341,120 @@ function togglePassword(inputId) {
         input.type = 'password';
         icon.classList.replace('fa-eye-slash', 'fa-eye');
         console.log('Ocultando senha');
+    }
+}
+
+//FUNÇÃO PARA MOSTRAR O MODAL DE TROCA DE SENHA
+
+function mostrarModalTrocaSenha(usuario){
+    window.usuarioTrocaSenha = usuario;
+
+    const modal = new bootstrap.Modal(
+        document.getElementById('trocarSenhaModal')
+    );
+
+    modal.show();
+}
+
+function salvarNovaSenha() {
+    console.log('🔑 Salvando nova senha...');
+    
+    const senha = document.getElementById('novaSenha').value;
+    const confirmar = document.getElementById('confirmarNovaSenha').value;
+    const usuario = window.usuarioTrocaSenha;
+    
+    // Validações básicas
+    if (!senha) {
+        alert('❌ Digite a nova senha!');
+        return;
+    }
+    
+    // 🔥 VALIDAÇÃO DE SENHA FORTE - APENAS PARA USUÁRIOS NÃO-MASTER
+    if (!usuario.master) {
+        // Verificar tamanho mínimo
+        if (senha.length < 8) {
+            alert('❌ A senha deve ter pelo menos 8 caracteres!');
+            return;
+        }
+        
+        // Verificar letra maiúscula
+        if (!/[A-Z]/.test(senha)) {
+            alert('❌ A senha deve conter pelo menos uma letra MAIÚSCULA!');
+            return;
+        }
+        
+        // Verificar letra minúscula
+        if (!/[a-z]/.test(senha)) {
+            alert('❌ A senha deve conter pelo menos uma letra minúscula!');
+            return;
+        }
+        
+        // Verificar número
+        if (!/[0-9]/.test(senha)) {
+            alert('❌ A senha deve conter pelo menos um número!');
+            return;
+        }
+        
+        // Verificar caractere especial
+        if (!/[!@#$%&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(senha)) {
+            alert('❌ A senha deve conter pelo menos um caractere especial (ex: @, #, $, %, &, !)');
+            return;
+        }
+    } else {
+        // Para Master, apenas tamanho mínimo básico
+        if (senha.length < 6) {
+            alert('❌ A senha deve ter pelo menos 6 caracteres!');
+            return;
+        }
+    }
+    
+    // Verificar se as senhas coincidem
+    if (senha !== confirmar) {
+        alert('❌ As senhas não coincidem!');
+        return;
+    }
+    
+    if (!usuario) {
+        alert('❌ Erro: usuário não identificado!');
+        return;
+    }
+    
+    console.log('🔄 Usuário para atualizar:', usuario.nome, 'ID:', usuario.id);
+    
+    // ✅ CORREÇÃO: Passar o ID numérico e os dados separadamente
+    const dadosAtualizados = {
+        senha_hash: senha,
+        forcarTrocaSenha: false
+    };
+    
+    // Chamar o método com ID e dados separados
+    const resultado = SistemaStorage.atualizarUsuario(usuario.id, dadosAtualizados);
+    
+    if (resultado) {
+        console.log('✅ Senha atualizada com sucesso!');
+        
+        // Fechar o modal
+        const modalElement = document.getElementById('trocarSenhaModal');
+        const modal = bootstrap.Modal.getInstance(modalElement);
+        if (modal) {
+            modal.hide();
+        }
+        
+        // Limpar os campos
+        document.getElementById('novaSenha').value = '';
+        document.getElementById('confirmarNovaSenha').value = '';
+        
+        // Limpar a variável global
+        window.usuarioTrocaSenha = null;
+        
+        // Mostrar mensagem de sucesso (apenas UMA vez)
+        alert('✅ Senha atualizada com sucesso! Faça login novamente.');
+        
+        // Redirecionar para a tela de login
+        window.location.href = 'login.html';
+        
+    } else {
+        console.error('❌ Erro ao atualizar senha');
+        alert('❌ Erro ao atualizar senha. Tente novamente.');
     }
 }

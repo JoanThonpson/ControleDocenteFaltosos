@@ -1,47 +1,57 @@
 ------------------------------------ESTRUTURA---------------------------------------------
 
-sistema-faltas/                # Pasta raiz do projeto
+ControleDocenteFaltosos/           # Raiz (seu repositório GitHub)
 │
-├── frontend/                  # Frontend
-│   ├── login.html            
-|   ├── Sistema.html            
-│       ├── css/              # Estilos
-│       │   ├── styles.css    # Principal
-│       │   ├── login.css     # Específico login
-│       │   └── modais.css    # Específico modais
-│       │
-│       ├── js/               # JavaScript
-│       │   ├── app.js        # Inicialização
-|       |    ├── login.js        # Inicialização
-│       │   ├── services/     # Serviços/lógica
-│       │   │
-│       │   ├── components/   # Componentes UI
-│       │   │
-│       │   ├── utils/        # Utilitários
-│       │   │   ├── storage.js│       │   │
-│       │   └── api/          # (Futuro) API client
-│       │       └── client.js
-│       │
-│       ├── assets/           # Imagens/ícones
-│       │   ├── logo.png      # (se houver)
-│       │   └── icons/        # (se houver)
-│       │
-│       └── fonts/            # Fontes customizadas
-│           └── 
+├── index.html                     #  FICA AQUI (GitHub Pages)
+├── frontend/                      #  PASTA ATUAL (GitHub Pages)
+│   ├── login.html
+│   ├── sistema.html
+│   ├── css/
+│   │   ├── styles.css
+│   │   ├── login.css
+│   │   └── modais.css
+│   ├── js/
+│   │   ├── app.js
+│   │   ├── login.js
+│   │   └── utils/
+│   │       └── storage.js
+│   └── assets/
 │
-├── backend/                  # Backend Node.js (Futuro)
-│   ├── src/                  # Código fonte backend
-│   │   ├── models/           # Modelos de dados
-│   │   ├── routes/           # Rotas API
-│   │   └── utils/            # Utilitários
-│   │
-│   ├── package.json          # Dependências Node.js
-│   ├── .env                  # Variáveis ambiente
-│   └── server.js             # Arquivo principal
+├── backend/                        # NOVA PASTA (Node.js + Docker)
+│   ├── Dockerfile                  # Configuração do container
+│   ├── package.json                # Dependências Node
+│   ├── package-lock.json
+│   ├── .env                        # Variáveis de ambiente
+│   ├── src/
+│   │   ├── server.js                # Servidor Express (principal)
+│   │   ├── routes/
+│   │   │   ├── auth.js              # Login/autenticação
+│   │   │   ├── docentes.js          # CRUD docentes
+│   │   │   ├── faltas.js            # CRUD faltas
+│   │   │   ├── configuracoes.js     # Disciplinas, cursos, etc
+│   │   │   ├── usuarios.js          # CRUD usuários
+│   │   │   └── relatorios.js        # Estatísticas
+│   │   ├── controllers/
+│   │   │   ├── authController.js
+│   │   │   ├── docenteController.js
+│   │   │   └── ... (separação da lógica)
+│   │   ├── models/
+│   │   │   ├── Database.js          # Conexão SQLite
+│   │   │   ├── Docente.js
+│   │   │   ├── Falta.js
+│   │   │   ├── Usuario.js
+│   │   │   └── Perfil.js
+│   │   ├── middlewares/
+│   │   │   ├── auth.js              # Verificação JWT
+│   │   │   └── permissoes.js        # Verificação de permissões
+│   │   └── utils/
+│   │       ├── validadores.js        # CPF, etc
+│   │       └── logger.js             # Sistema de logs
+│   └── data/
+│       └── sistema.db                # ARQUIVO SQLITE (criado automaticamente)
 │
-└── database/                 # Scripts SQL (Futuro)
-    ├── schema.sql            # Schema completo
-    └── migrations/           # Migrações do banco
+├── docker-compose.yml                # Orquestração Docker
+└── README.md                         # Documentação
 
 
 ------------------------------------------------------------------------------------------------------------------
@@ -181,20 +191,21 @@ sistema-faltas/                # Pasta raiz do projeto
 ---------------------------------------------------------------------------------------------------------------
 
 📊 Melhorias Adicionais Sugeridas
-Histórico de alterações: Registrar quem fez cada modificação
 
 Backup automático: Salvar dados em JSON periodicamente
 
-Validação de CPF: Para login de usuários
-
 Recuperação de senha: Via e-mail ou token
-
-Dashboard inicial: Com gráficos de faltas por mês/docente
 
 ---------------------------------------------------------------------------------------------------------------
 
 
 JoanThonpson/github-readme-stats
 
-*Só pode excluir se não tiver registros (faltas, logs, etc.)
+// frontend/js/utils/storage.js
+// ✅ Este arquivo CONTINUA FUNCIONANDO
+// Mas vamos ADICIONAR uma versão backend
+
+// Opção 1: Mantém como está (funciona localmente)
+// Opção 2: Depois criamos storage-api.js que chama o backend
+// Você escolhe quando migrar!
 

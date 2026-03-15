@@ -62,11 +62,32 @@ function formatarCPF(cpf) {
 
 // ========== GERADOR DE SENHA ALEATÓRIA ==========
 function gerarSenhaAleatoria(tamanho = 8) {
-    const caracteres = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789@#$%&';
+    // Garantir pelo menos 8 caracteres
+    tamanho = Math.max(8, tamanho);
+    
+    // Garantir que tenha pelo menos 1 de cada tipo
+    const maiusculas = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+    const minusculas = 'abcdefghijklmnopqrstuvwxyz';
+    const numeros = '0123456789';
+    const especiais = '@#$%&*!?';
+    
     let senha = '';
-    for (let i = 0; i < tamanho; i++) {
-        senha += caracteres.charAt(Math.floor(Math.random() * caracteres.length));
+    
+    // Forçar pelo menos 1 de cada tipo
+    senha += maiusculas.charAt(Math.floor(Math.random() * maiusculas.length));
+    senha += minusculas.charAt(Math.floor(Math.random() * minusculas.length));
+    senha += numeros.charAt(Math.floor(Math.random() * numeros.length));
+    senha += especiais.charAt(Math.floor(Math.random() * especiais.length));
+    
+    // Completar o restante com caracteres aleatórios de todos os grupos
+    const todos = maiusculas + minusculas + numeros + especiais;
+    for (let i = senha.length; i < tamanho; i++) {
+        senha += todos.charAt(Math.floor(Math.random() * todos.length));
     }
+    
+    // Embaralhar a senha para não ficar previsível
+    senha = senha.split('').sort(() => Math.random() - 0.5).join('');
+    
     return senha;
 }
 
@@ -400,66 +421,54 @@ const SistemaStorage = {
     },
     
     atualizarUsuario: function(id, dadosAtualizados) {
-        console.log('Atualizando usuário ID:', id, dadosAtualizados);
-        
-        const index = this.usuarios.findIndex(u => u.id === id);
-        if (index === -1) {
-            console.error('Usuário não encontrado ID:', id);
+    console.log('Atualizando usuário ID:', id, dadosAtualizados);
+    
+    const index = this.usuarios.findIndex(u => u.id === id);
+    if (index === -1) {
+        console.error('Usuário não encontrado ID:', id);
+        return false;
+    }
+    
+    const usuario = this.usuarios[index];
+    
+    // NÃO PERMITIR ALTERAR MASTER
+    if (usuario.master) {
+        console.error('Não é permitido alterar usuário Master');
+        return false;
+    }
+    
+    // Validar CPF se for alterado
+    if (dadosAtualizados.cpf && dadosAtualizados.cpf !== usuario.cpf) {
+        if (!validarCPF(dadosAtualizados.cpf)) {
+            console.error('CPF inválido:', dadosAtualizados.cpf);
             return false;
         }
         
-        const usuario = this.usuarios[index];
+        // Verificar se novo CPF já existe em outro usuário
+        const cpfExiste = this.usuarios.some(u => 
+            u.id !== id && (u.cpf === dadosAtualizados.cpf || u.cpf === formatarCPF(dadosAtualizados.cpf))
+        );
         
-        // NÃO PERMITIR ALTERAR MASTER
-        if (usuario.master) {
-            console.error('Não é permitido alterar usuário Master');
+        if (cpfExiste) {
+            console.error('CPF já cadastrado em outro usuário:', dadosAtualizados.cpf);
             return false;
         }
         
-        // Validar CPF se for alterado
-        if (dadosAtualizados.cpf && dadosAtualizados.cpf !== usuario.cpf) {
-            if (!validarCPF(dadosAtualizados.cpf)) {
-                console.error('CPF inválido:', dadosAtualizados.cpf);
-                return false;
-            }
-            
-            // Verificar se novo CPF já existe em outro usuário
-            const cpfExiste = this.usuarios.some(u => 
-                u.id !== id && (u.cpf === dadosAtualizados.cpf || u.cpf === formatarCPF(dadosAtualizados.cpf))
-            );
-            
-            if (cpfExiste) {
-                console.error('CPF já cadastrado em outro usuário:', dadosAtualizados.cpf);
-                return false;
-            }
-            
-            // Formatar CPF e atualizar login
-            dadosAtualizados.cpf = formatarCPF(dadosAtualizados.cpf);
-            dadosAtualizados.login = dadosAtualizados.cpf;
-        }
-        
-        // Validar email se for alterado
-        if (dadosAtualizados.email && dadosAtualizados.email !== usuario.email) {
-            const emailExiste = this.usuarios.some(u => 
-                u.id !== id && u.email.toLowerCase() === dadosAtualizados.email.toLowerCase()
-            );
-            
-            if (emailExiste) {
-                console.error('Email já cadastrado em outro usuário:', dadosAtualizados.email);
-                return false;
-            }
-        }
-        
-        // Atualizar usuário
-        this.usuarios[index] = { ...usuario, ...dadosAtualizados };
-        this.salvar('usuarios', this.usuarios);
-        
-        // Registrar log
-        this.registrarLog('ATUALIZACAO_USUARIO', 'Usuários', 
-            `Atualizou usuário: ${usuario.nome} (${usuario.cpf})`);
-        
-        console.log('Usuário atualizado com sucesso!');
-        return true;
+        // Formatar CPF e atualizar login
+        dadosAtualizados.cpf = formatarCPF(dadosAtualizados.cpf);
+        dadosAtualizados.login = dadosAtualizados.cpf;
+    }
+    
+    // Atualizar usuário
+    this.usuarios[index] = { ...usuario, ...dadosAtualizados };
+    this.salvar('usuarios', this.usuarios);
+    
+    // Registrar log
+    this.registrarLog('ATUALIZACAO_USUARIO', 'Usuários', 
+        `Atualizou usuário: ${usuario.nome} (${usuario.cpf})`);
+    
+    console.log('✅ Usuário atualizado com sucesso!');
+    return true;
     },
     
     removerUsuario: function(id) {
@@ -753,49 +762,51 @@ const SistemaStorage = {
     
     // ========== AUTENTICAÇÃO ==========
     autenticarUsuario: function(login, senha) {
-        console.log('Tentando autenticar:', login);
-    
-        // Se for Master (admin)
-        if (login === 'admin') {
+    console.log('Tentando autenticar:', login);
+
+    // Se for Master (admin)
+    if (login === 'admin') {
         const master = this.usuarios.find(u => u.master === true);
         if (master && senha === master.senha_hash) {
             this.registrarLog('LOGIN', 'Autenticação', 'Login realizado como Master', master.id);
             return master;
         }
         return null;
-        }
-    
-        // Se for CPF (usuário normal)
-        // IMPORTANTE: Remover formatação do CPF
-        const loginLimpo = login.replace(/[^\d]/g, '');
-        console.log('Login limpo:', loginLimpo);
-    
-        // Procurar usuário por CPF (comparando sem formatação)
-        const usuario = this.usuarios.find(u => {
+    }
+
+    // Se for CPF (usuário normal)
+    const loginLimpo = login.replace(/[^\d]/g, '');
+    console.log('Login limpo:', loginLimpo);
+
+    // Procurar usuário por CPF
+    const usuario = this.usuarios.find(u => {
         if (u.master) return false;
-        if (!u.ativo) return false;
+        // ✅ REMOVEMOS a verificação de 'ativo' daqui
         
         const cpfUsuario = u.cpf.replace(/[^\d]/g, '');
         return cpfUsuario === loginLimpo;
-        });
-    
-        if (!usuario) {
+    });
+
+    if (!usuario) {
         console.log('Usuário não encontrado com CPF:', login);
         return null;
+    }
+
+    console.log('Usuário encontrado:', usuario.nome);
+
+    // Verificar senha
+    if (senha === usuario.senha_hash) {
+        // ✅ SÓ ATUALIZAMOS O LOGIN SE ELE ESTIVER ATIVO
+        if (usuario.ativo) {
+            usuario.ultimo_login = new Date().toISOString();
+            this.salvar('usuarios', this.usuarios);
         }
-    
-        console.log('Usuário encontrado:', usuario.nome);
-    
-        // Verificar senha
-        if (senha === usuario.senha_hash) {
-        usuario.ultimo_login = new Date().toISOString();
-        this.salvar('usuarios', this.usuarios);
         this.registrarLog('LOGIN', 'Autenticação', `Login realizado: ${usuario.nome}`, usuario.id);
-        return usuario;
-        }
-    
+        return usuario; // Retorna o usuário (ativo ou inativo)
+     }
+
         console.log('Senha incorreta para:', usuario.nome);
-        return null;
+      return null;
     },
     
     

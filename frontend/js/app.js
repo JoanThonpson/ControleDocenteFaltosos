@@ -1058,7 +1058,8 @@ function salvarUsuario() {
         cpf: cpf,
         email: email || '',
         perfil_id: perfilId,
-        ativo: ativo !== false
+        ativo: ativo !== false,
+        forcarTrocaSenha: document.getElementById('forcarTrocaSenha')?.checked || false
     };
     
     // Adicionar senha se foi fornecida
@@ -1359,21 +1360,28 @@ function abrirModalUsuario(id = null) {
             if (usuarioAtivo) usuarioAtivo.checked = usuario.ativo !== false;
             
             // 🔴 MOSTRAR O BOTÃO "GERAR NOVA SENHA" NA EDIÇÃO
-            if (gerarSenhaBtn) {
+             if (gerarSenhaBtn) {
                 gerarSenhaBtn.style.display = 'inline-block';
-                
+        
                 // Configurar o botão para mostrar os campos de senha
                 gerarSenhaBtn.onclick = function() {
-                    // Mostrar os campos de senha
+                     // Mostrar os campos de senha
                     if (usuarioSenha) {
-                        usuarioSenha.parentElement.parentElement.style.display = 'block';
-                        usuarioSenha.value = '';
+                    usuarioSenha.parentElement.parentElement.style.display = 'block';
+                    usuarioSenha.value = '';
                     }
                     if (usuarioConfirmarSenha) {
-                        usuarioConfirmarSenha.parentElement.parentElement.style.display = 'block';
-                        usuarioConfirmarSenha.value = '';
+                    usuarioConfirmarSenha.parentElement.parentElement.style.display = 'block';
+                    usuarioConfirmarSenha.value = '';
                     }
-                    // Esconder o botão após clicar (opcional)
+            
+                    // 🔥 NOVO: Mostrar o checkbox de forçar troca de senha
+                    const forcarTrocaContainer = document.getElementById('forcarTrocaContainer');
+                    if (forcarTrocaContainer) {
+                         forcarTrocaContainer.style.display = 'block';
+                    }
+            
+                    // Esconder o botão após clicar
                     gerarSenhaBtn.style.display = 'none';
                 };
             }
@@ -1382,21 +1390,29 @@ function abrirModalUsuario(id = null) {
             if (usuarioSenha) usuarioSenha.parentElement.parentElement.style.display = 'none';
             if (usuarioConfirmarSenha) usuarioConfirmarSenha.parentElement.parentElement.style.display = 'none';
         }
-    } else {
-        modalTitle.textContent = 'Cadastrar Usuário';
+
         
+    } else {
+    modalTitle.textContent = 'Cadastrar Usuário';
+    
         // 🔴 PARA NOVO USUÁRIO, MOSTRAR OS CAMPOS DE SENHA
-        if (usuarioSenha) {
+            if (usuarioSenha) {
             usuarioSenha.parentElement.parentElement.style.display = 'block';
             usuarioSenha.value = '';
-        }
-        if (usuarioConfirmarSenha) {
+            }
+            if (usuarioConfirmarSenha) {
             usuarioConfirmarSenha.parentElement.parentElement.style.display = 'block';
             usuarioConfirmarSenha.value = '';
+            }
+    
+            // 🔴 ESCONDER O BOTÃO "GERAR NOVA SENHA" NO NOVO USUÁRIO
+            if (gerarSenhaBtn) gerarSenhaBtn.style.display = 'none';
+            
+            // 🔥 NOVO: Esconder o checkbox de forçar troca de senha
+            const forcarTrocaContainer = document.getElementById('forcarTrocaContainer');
+            if (forcarTrocaContainer) {
+            forcarTrocaContainer.style.display = 'none';
         }
-        
-        // 🔴 ESCONDER O BOTÃO "GERAR NOVA SENHA" NO NOVO USUÁRIO
-        if (gerarSenhaBtn) gerarSenhaBtn.style.display = 'none';
     }
     
     // Configurar máscara de CPF

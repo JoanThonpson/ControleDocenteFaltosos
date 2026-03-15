@@ -301,5 +301,61 @@
             if (select) select.value = '';
         });
     </script>
+    </script>
+
+    <!-- ========== MODAL TROCAR SENHA ========== -->
+    <div class="modal fade" id="trocarSenhaModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">
+                        <i class="fas fa-key me-2"></i>
+                        Criar Nova Senha
+                    </h5>
+                </div>
+                <div class="modal-body">
+                    <div class="alert alert-warning">
+                        Por segurança você precisa criar uma nova senha.
+                        <div class="form-text">
+                                <br>A senha deve conter pelo menos uma letra minúscula!;
+                                <br>A senha deve conter pelo menos um número!;
+                                <br>A senha deve conter pelo menos um caractere especial!;
+                                <br>A senha deve conter no mínimo 8 caracteres!
+                            </div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Nova Senha</label>
+                        <div class="input-group">
+                            <input type="password" id="novaSenha" class="form-control" />
+                            <button class="btn btn-outline-secondary" onclick="togglePassword('novaSenha')">
+                                <i class="fas fa-eye"></i>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Confirmar Nova Senha</label>
+                        <div class="input-group">
+                            <input type="password" id="confirmarNovaSenha" class="form-control" />
+                            <button class="btn btn-outline-secondary" onclick="togglePassword('confirmarNovaSenha')">
+                                <i class="fas fa-eye"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-primary" onclick="salvarNovaSenha()">
+                        Salvar Nova Senha
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    
+    <!-- JavaScript do Login -->
+    <script src="js/login.js"></script>
+
 </body>
 </html>
