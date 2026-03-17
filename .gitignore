@@ -1,0 +1,22 @@
+# Arquivo: ControleDocenteFaltosos/.gitignore
+
+# Ambiente
+.env
+.env.local
+*.env
+
+# Banco de dados
+*.db
+*.sqlite
+/data/
+
+# Logs
+logs/
+*.log
+
+# Dependências
+node_modules/
+
+# Sistema
+.DS_Store
+Thumbs.db

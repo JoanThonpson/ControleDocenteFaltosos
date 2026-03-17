@@ -1,0 +1,9 @@
+# Arquivo: ControleDocenteFaltosos/backend/.dockerignore
+# Função: Arquivos que NÃO vão pro container
+
+node_modules
+npm-debug.log
+.env
+.git
+data/
+*.db

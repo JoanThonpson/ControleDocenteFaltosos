@@ -1,0 +1,27 @@
+# Arquivo: ControleDocenteFaltosos/docker-compose.yml
+# Função: Orquestra os containers Docker (sobe backend, banco, etc)
+
+version: '3.8'
+
+services:
+  backend:
+    build: ./backend
+    container_name: controledocentes-api
+    ports:
+      - "3000:3000"  # Mapeia porta 3000 do container pra sua máquina
+    volumes:
+      # Sincroniza código para hot reload
+      - ./backend:/app
+      - /app/node_modules
+      # Volume persistente pro SQLite
+      - sqlite_data:/app/data
+    environment:
+      - NODE_ENV=development
+      - PORT=3000
+    env_file:
+      - ./backend/.env
+    command: npm run dev
+
+volumes:
+  sqlite_data:
+    name: controledocentes_sqlite_data

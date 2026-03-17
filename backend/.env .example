@@ -1,0 +1,14 @@
+# Arquivo: ControleDocenteFaltosos/backend/.env.example
+# ✅ PODE subir pro GitHub (não tem dados reais)
+
+PORT=3000
+NODE_ENV=development
+DB_PATH=./data/sistema.db
+
+# Segurança (coloque SEU secret)
+JWT_SECRET=coloque-um-secret-aqui
+JWT_EXPIRES_IN=7d
+
+# Admin (APENAS para primeira execução)
+ADMIN_CPF=000.000.000-00
+ADMIN_SENHA=admin123
