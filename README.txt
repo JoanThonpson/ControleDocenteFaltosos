@@ -1,3 +1,11 @@
+Sistema em desenvolvimento para controle de faltas de docentes, com arquitetura separada entre frontend e backend.
+
+Possui autenticação, controle de permissões por perfil de usuário (Master, Gestor, Operador e Supervisor) e organização de dados com SQLite.
+
+A aplicação segue uma estrutura baseada em rotas, controllers, models e middlewares, simulando um ambiente real de sistemas corporativos.
+
+Tecnologias: Node.js, Express, SQLite, JavaScript
+
 ------------------------------------ESTRUTURA---------------------------------------------
 
 ControleDocenteFaltosos/           # Raiz (seu repositório GitHub)
