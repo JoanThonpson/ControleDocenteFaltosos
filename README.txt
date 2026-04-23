@@ -1,3 +1,11 @@
+Sistema em desenvolvimento para controle de faltas de docentes, com arquitetura separada entre frontend e backend.
+
+Possui autenticação, controle de permissões por perfil de usuário (Mestre, Gestor, Operador e Supervisor) e organização de dados com SQLite.
+
+A aplicação segue uma estrutura baseada em rotas, controladores, modelos e middlewares, simulando um ambiente real de sistemas corporativos.
+
+Tecnologias: Node.js, Express, SQLite, JavaScript
+
 ------------------------------------ESTRUTURA---------------------------------------------
 
 sistema-faltas/                # Pasta raiz do projeto
